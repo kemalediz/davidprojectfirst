@@ -1652,5 +1652,308 @@ window.MARVEL_CHARACTERS = [
       "universe in his own image, fathering countless children to harness their power. He " +
       "is revealed as Peter Quill's father — and the films' true threat.",
     facts: "He fathered Star-Lord as part of his plan to seed the galaxy."
+  },
+  {
+    name: "Kang the Conqueror",
+    alias: "Nathaniel Richards",
+    teams: [],
+    category: "Villain",
+    created: 1964,
+    firstAppearance: "The Avengers #8 (1964)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Jonathan Majors"],
+    films: [
+      "Loki (TV, 2021-2023)", "Ant-Man and the Wasp: Quantumania (2023)"
+    ],
+    powers: [
+      "Mastery of time travel and futuristic technology",
+      "Powered armor granting strength, energy blasts and force fields",
+      "Genius-level intellect and strategic command",
+      "Countless variants of himself across the multiverse"
+    ],
+    storyline: "A time-traveling conqueror from the far future, Kang exists as innumerable " +
+      "variants scattered across the multiverse. After one variant — 'He Who Remains' — is " +
+      "killed at the end of time, the others are freed to wage war across all realities.",
+    facts: "His many variants set up a multiverse-spanning threat in the MCU."
+  },
+  {
+    name: "Moon Knight",
+    alias: "Marc Spector / Steven Grant",
+    teams: [],
+    category: "Anti-Hero",
+    created: 1975,
+    firstAppearance: "Werewolf by Night #32 (1975)",
+    creators: ["Doug Moench", "Don Perlin"],
+    actors: ["Oscar Isaac"],
+    films: ["Moon Knight (TV, 2022)"],
+    powers: [
+      "Enhanced strength and resilience as avatar of the moon god Khonshu",
+      "Multiple personalities, each a distinct skilled fighter",
+      "Arsenal of crescent darts, batons and a caped suit",
+      "Expert combatant and mercenary"
+    ],
+    storyline: "Mercenary Marc Spector, who lives with dissociative identity disorder, is " +
+      "revived as the avatar of the Egyptian moon god Khonshu. As Moon Knight he dispenses " +
+      "brutal justice while wrestling with his fractured identities.",
+    facts: "His alters — Marc, Steven and Jake — each handle different situations."
+  },
+  {
+    name: "She-Hulk",
+    alias: "Jennifer Walters",
+    teams: ["Avengers"],
+    category: "Hero",
+    created: 1980,
+    firstAppearance: "The Savage She-Hulk #1 (1980)",
+    creators: ["Stan Lee", "John Buscema"],
+    actors: ["Tatiana Maslany"],
+    films: ["She-Hulk: Attorney at Law (TV, 2022)"],
+    powers: [
+      "Superhuman strength and durability from Bruce Banner's gamma blood",
+      "Retains her intellect and personality while transformed",
+      "Accelerated healing",
+      "Brilliant attorney specializing in superhuman law"
+    ],
+    storyline: "Lawyer Jennifer Walters receives an emergency blood transfusion from her " +
+      "cousin Bruce Banner and gains Hulk-like powers — but keeps her wit and control. She " +
+      "balances a legal career representing superhumans with her new gamma-powered life.",
+    facts: "In the comics she's famous for breaking the fourth wall, long before Deadpool."
+  },
+  {
+    name: "Kingpin",
+    alias: "Wilson Fisk",
+    teams: [],
+    category: "Villain",
+    created: 1967,
+    firstAppearance: "The Amazing Spider-Man #50 (1967)",
+    creators: ["Stan Lee", "John Romita Sr."],
+    actors: ["Michael Clarke Duncan", "Vincent D'Onofrio"],
+    films: [
+      "Daredevil (2003)", "Daredevil (TV, 2015-2018)", "Hawkeye (TV, 2021)",
+      "Echo (TV, 2024)"
+    ],
+    powers: [
+      "Immense physical strength despite his bulk",
+      "Brutal hand-to-hand combatant",
+      "Criminal mastermind controlling vast organized-crime networks",
+      "Vast wealth and political influence"
+    ],
+    storyline: "Wilson Fisk rises from the streets to rule New York's underworld as the " +
+      "Kingpin of crime, hiding ruthless violence behind a veneer of civic respectability. " +
+      "He is the towering nemesis of Daredevil and Spider-Man alike.",
+    facts: "Though he has no powers, his physical strength rivals enhanced foes."
+  },
+  {
+    name: "Elektra",
+    alias: "Elektra Natchios",
+    teams: ["The Hand"],
+    category: "Anti-Hero",
+    created: 1981,
+    firstAppearance: "Daredevil #168 (1981)",
+    creators: ["Frank Miller"],
+    actors: ["Jennifer Garner", "Élodie Yung"],
+    films: [
+      "Daredevil (2003)", "Elektra (2005)", "Daredevil (TV, 2016)",
+      "The Defenders (TV, 2017)"
+    ],
+    powers: [
+      "Master assassin and ninja",
+      "Expert with the twin sai, her signature weapons",
+      "Peak human agility, reflexes and stealth",
+      "Trained by the mystical ninja clan The Hand"
+    ],
+    storyline: "Daughter of a murdered diplomat, Elektra trains as a lethal assassin and " +
+      "becomes entangled with Daredevil as both lover and adversary. Her story is one of " +
+      "death, resurrection and the pull between darkness and redemption.",
+    facts: "Frank Miller's Elektra redefined the role of women in mainstream comics."
+  },
+  {
+    name: "Namor",
+    alias: "Namor McKenzie / K'uk'ulkan",
+    teams: ["Defenders", "Invaders"],
+    category: "Anti-Hero",
+    created: 1939,
+    firstAppearance: "Marvel Comics #1 (1939)",
+    creators: ["Bill Everett"],
+    actors: ["Tenoch Huerta"],
+    films: ["Black Panther: Wakanda Forever (2022)"],
+    powers: [
+      "Superhuman strength, especially underwater",
+      "Aquatic breathing and deep-sea adaptation",
+      "Flight via wings on his ankles",
+      "Ruler of an ancient undersea civilization"
+    ],
+    storyline: "The proud ruler of a hidden underwater kingdom, Namor fiercely protects his " +
+      "people from the surface world. An antihero who shifts between ally and antagonist, he " +
+      "clashes with Wakanda over their shared secret of vibranium.",
+    facts: "Namor is widely cited as Marvel's first antihero, debuting in 1939."
+  },
+  {
+    name: "Valkyrie",
+    alias: "Brunnhilde",
+    teams: ["Avengers"],
+    category: "Hero",
+    created: 1970,
+    firstAppearance: "The Avengers #83 (1970)",
+    creators: ["Roy Thomas", "John Buscema"],
+    actors: ["Tessa Thompson"],
+    films: [
+      "Thor: Ragnarok (2017)", "Avengers: Endgame (2019)", "Thor: Love and Thunder (2022)"
+    ],
+    powers: [
+      "Asgardian warrior with superhuman strength and durability",
+      "Elite swordsmanship and combat skill",
+      "Long lifespan and accelerated healing",
+      "Skilled rider of winged steeds"
+    ],
+    storyline: "The last of Asgard's legendary Valkyrie warriors, Brunnhilde drowns her " +
+      "grief over a battlefield defeat until Thor reignites her purpose. She becomes the " +
+      "king of New Asgard, leading her people in the post-Ragnarok era.",
+    facts: "She is the MCU's first openly LGBTQ+ lead hero."
+  },
+  {
+    name: "Sersi",
+    alias: "Sersi",
+    teams: ["Eternals"],
+    category: "Hero",
+    created: 1976,
+    firstAppearance: "The Eternals #1 (1976)",
+    creators: ["Jack Kirby"],
+    actors: ["Gemma Chan"],
+    films: ["Eternals (2021)"],
+    powers: [
+      "Transmutes inanimate matter into other substances",
+      "Near-immortality as an Eternal",
+      "Superhuman durability and cosmic-energy manipulation"
+    ],
+    storyline: "An Eternal who has lived among humans for millennia, Sersi can transform " +
+      "matter with a touch. When the world-ending 'Emergence' threatens Earth, her love for " +
+      "humanity puts her at the center of the Eternals' moral reckoning.",
+    facts: "The Eternals were sent to Earth by the Celestials thousands of years ago."
+  },
+  {
+    name: "Ikaris",
+    alias: "Ikaris",
+    teams: ["Eternals"],
+    category: "Anti-Hero",
+    created: 1976,
+    firstAppearance: "The Eternals #1 (1976)",
+    creators: ["Jack Kirby"],
+    actors: ["Richard Madden"],
+    films: ["Eternals (2021)"],
+    powers: [
+      "Flight and superhuman strength",
+      "Projects powerful cosmic energy beams from his eyes",
+      "Near-invulnerability and accelerated healing",
+      "Near-immortality as an Eternal"
+    ],
+    storyline: "The most powerful of the Eternals, Ikaris is a stalwart leader whose loyalty " +
+      "to their Celestial masters sets him against his own family when the truth of their " +
+      "mission is revealed.",
+    facts: "His powers and name evoke the Greek myth of Icarus."
+  },
+  {
+    name: "Kate Bishop",
+    alias: "Kate Bishop",
+    teams: ["Young Avengers"],
+    category: "Hero",
+    created: 2005,
+    firstAppearance: "Young Avengers #1 (2005)",
+    creators: ["Allan Heinberg", "Jim Cheung"],
+    actors: ["Hailee Steinfeld"],
+    films: ["Hawkeye (TV, 2021)"],
+    powers: [
+      "Olympic-level archer and marksman",
+      "Skilled martial artist, fencer and acrobat",
+      "Trick arrows and sharp tactical instincts",
+      "Peak human athleticism (no superpowers)"
+    ],
+    storyline: "Wealthy, fearless and the world's biggest Hawkeye fan, Kate Bishop teams up " +
+      "with Clint Barton during a chaotic New York Christmas and proves herself worthy of " +
+      "the Hawkeye mantle.",
+    facts: "She's a founding member of the Young Avengers in the comics."
+  },
+  {
+    name: "Ironheart",
+    alias: "Riri Williams",
+    teams: [],
+    category: "Hero",
+    created: 2016,
+    firstAppearance: "Invincible Iron Man #7 (2016)",
+    creators: ["Brian Michael Bendis", "Mike Deodato"],
+    actors: ["Dominique Thorne"],
+    films: ["Black Panther: Wakanda Forever (2022)", "Ironheart (TV, 2025)"],
+    powers: [
+      "Genius engineer who built her own powered armor",
+      "Flight, repulsor blasts and integrated weapons",
+      "Superhuman strength and protection via the suit",
+      "MIT-level scientific brilliance as a teenager"
+    ],
+    storyline: "A teenage engineering prodigy at MIT, Riri Williams reverse-engineers her " +
+      "own Iron Man-style suit. Inspired by Tony Stark, she steps into the role of Ironheart, " +
+      "a brilliant young hero finding her footing.",
+    facts: "She built her first armor from scavenged parts in her dorm."
+  },
+  {
+    name: "America Chavez",
+    alias: "America Chavez",
+    teams: ["Young Avengers"],
+    category: "Hero",
+    created: 2011,
+    firstAppearance: "Vengeance #1 (2011)",
+    creators: ["Joe Casey", "Nick Dragotta"],
+    actors: ["Xochitl Gomez"],
+    films: ["Doctor Strange in the Multiverse of Madness (2022)"],
+    powers: [
+      "Punches star-shaped portals to travel between universes",
+      "Superhuman strength, speed and durability",
+      "Flight",
+      "Unique multiversal abilities"
+    ],
+    storyline: "A teenager with the rare power to travel the multiverse, America Chavez is " +
+      "hunted for her abilities and protected by Doctor Strange. She learns to control her " +
+      "powers and embrace her role across the realities.",
+    facts: "She is one of Marvel's prominent Latina LGBTQ+ heroes."
+  },
+  {
+    name: "Agatha Harkness",
+    alias: "Agatha Harkness",
+    teams: [],
+    category: "Villain",
+    created: 1970,
+    firstAppearance: "Fantastic Four #94 (1970)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Kathryn Hahn"],
+    films: ["WandaVision (TV, 2021)", "Agatha All Along (TV, 2024)"],
+    powers: [
+      "Centuries-old witch versed in classical and dark magic",
+      "Drains magic and life force from other witches",
+      "Spellcasting, telekinesis and illusion",
+      "Vast occult knowledge"
+    ],
+    storyline: "An ancient, power-hungry witch, Agatha Harkness infiltrates Wanda Maximoff's " +
+      "reality-warped town of Westview to uncover the source of her chaos magic — only to " +
+      "discover Wanda is the prophesied Scarlet Witch.",
+    facts: "Her catchy theme 'Agatha All Along' became a surprise pop-culture hit."
+  },
+  {
+    name: "Mysterio",
+    alias: "Quentin Beck",
+    teams: ["Sinister Six"],
+    category: "Villain",
+    created: 1964,
+    firstAppearance: "The Amazing Spider-Man #13 (1964)",
+    creators: ["Stan Lee", "Steve Ditko"],
+    actors: ["Jake Gyllenhaal"],
+    films: ["Spider-Man: Far From Home (2019)"],
+    powers: [
+      "Master of illusion, holography and special effects",
+      "Combines drone technology with stagecraft to fake superpowers",
+      "Skilled engineer and manipulator",
+      "Expert at deception and misdirection"
+    ],
+    storyline: "Disgruntled former Stark engineer Quentin Beck uses illusion drones to pose " +
+      "as a heroic 'super hero from another Earth,' manipulating Spider-Man and the public. " +
+      "Even in death he strikes a final blow by exposing Peter Parker's identity.",
+    facts: "His dying act unmasked Spider-Man to the entire world."
   }
 ];

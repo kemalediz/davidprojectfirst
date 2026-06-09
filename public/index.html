@@ -23,14 +23,22 @@
         </div>
       </div>
       <p class="tagline">The wiki of Marvel characters &mdash; origins, films, actors, powers &amp; stories</p>
-      <div class="search-wrap">
-        <input
-          id="search"
-          type="search"
-          placeholder="Search characters, actors, powers, films…"
-          aria-label="Search characters"
-          autocomplete="off"
-        />
+      <div class="controls">
+        <div class="search-wrap">
+          <input
+            id="search"
+            type="search"
+            placeholder="Search characters, actors, powers, films…"
+            aria-label="Search characters"
+            autocomplete="off"
+          />
+        </div>
+        <select id="sort" class="sort-select" aria-label="Sort characters">
+          <option value="name-asc">Name (A–Z)</option>
+          <option value="name-desc">Name (Z–A)</option>
+          <option value="year-asc">Created (Oldest first)</option>
+          <option value="year-desc">Created (Newest first)</option>
+        </select>
       </div>
     </div>
   </header>

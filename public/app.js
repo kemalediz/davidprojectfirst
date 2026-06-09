@@ -18,6 +18,7 @@ const els = {
   grid: document.getElementById("grid"),
   filters: document.getElementById("filters"),
   search: document.getElementById("search"),
+  sort: document.getElementById("sort"),
   count: document.getElementById("result-count"),
   empty: document.getElementById("empty"),
   dataMessage: document.getElementById("data-message"),
@@ -25,10 +26,13 @@ const els = {
   modalBody: document.getElementById("modal-body"),
 };
 
+const BASE_TITLE = document.title;
+
 let characters = [];
 let activeCategory = "All";
 let query = "";
 let favoritesOnly = false;
+let sortBy = "name-asc";
 
 // Favourites state (only meaningful when signed in).
 let currentUser = null;
@@ -70,6 +74,23 @@ function matches(c) {
   const inQuery = !query || haystack(c).includes(query);
   const inFavorites = !favoritesOnly || favorites.has(c._id);
   return inCategory && inQuery && inFavorites;
+}
+
+// Comparator for the sort dropdown. Operates on { c } wrappers.
+function compareBy(mode) {
+  const byName = (a, b) => String(a.c.name).localeCompare(String(b.c.name));
+  const byYear = (a, b) => (Number(a.c.created) || 0) - (Number(b.c.created) || 0);
+  switch (mode) {
+    case "name-desc":
+      return (a, b) => byName(b, a);
+    case "year-asc":
+      return (a, b) => byYear(a, b) || byName(a, b);
+    case "year-desc":
+      return (a, b) => byYear(b, a) || byName(a, b);
+    case "name-asc":
+    default:
+      return byName;
+  }
 }
 
 // ---- Filters ---------------------------------------------------------------
@@ -143,6 +164,7 @@ function render() {
   characters.forEach((c, i) => {
     if (matches(c)) visible.push({ c, i });
   });
+  visible.sort(compareBy(sortBy));
 
   els.grid.innerHTML = visible.map(({ c, i }) => cardHtml(c, i)).join("");
 
@@ -258,6 +280,10 @@ function openModal(index) {
   els.modal.scrollTop = 0;
   document.body.style.overflow = "hidden";
 
+  // Make the open character shareable via URL + reflect it in the page title.
+  history.replaceState(null, "", "#/c/" + encodeURIComponent(c._id));
+  document.title = `${c.name} — ${BASE_TITLE}`;
+
   const favBtn = els.modalBody.querySelector(".fav-btn");
   if (favBtn) {
     favBtn.addEventListener("click", (e) => {
@@ -275,17 +301,41 @@ function openModal(index) {
 function closeModal() {
   els.modal.hidden = true;
   document.body.style.overflow = "";
+  document.title = BASE_TITLE;
+  if (location.hash.startsWith("#/c/")) {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+}
+
+function openById(id) {
+  const index = characters.findIndex((c) => c._id === id);
+  if (index >= 0) openModal(index);
+}
+
+// Open the character named in the URL hash (#/c/<id>), if any.
+function openFromHash() {
+  const m = location.hash.match(/^#\/c\/(.+)$/);
+  if (m) openById(decodeURIComponent(m[1]));
+  else if (!els.modal.hidden) closeModal();
 }
 
 els.modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", closeModal));
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !els.modal.hidden) closeModal();
 });
+// React to shared links / manual hash navigation (our own opens use replaceState,
+// which doesn't fire this event, so there's no loop).
+window.addEventListener("hashchange", openFromHash);
 
 // ---- Search ----------------------------------------------------------------
 
 els.search.addEventListener("input", (e) => {
   query = e.target.value.trim().toLowerCase();
+  render();
+});
+
+els.sort.addEventListener("change", (e) => {
+  sortBy = e.target.value;
   render();
 });
 
@@ -384,6 +434,8 @@ async function initWiki() {
   }
 
   render();
+  // If the page was opened with a #/c/<id> link, show that character.
+  openFromHash();
 }
 
 // Load the public wiki immediately on page load.

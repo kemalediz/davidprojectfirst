@@ -86,8 +86,45 @@ body {
   font-size: 14px;
 }
 
+.controls {
+  width: min(720px, 100%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .search-wrap {
-  width: min(620px, 100%);
+  flex: 1;
+  min-width: 0;
+}
+
+.sort-select {
+  flex-shrink: 0;
+  padding: 13px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.sort-select:focus {
+  border-color: var(--marvel-red);
+  box-shadow: 0 0 0 3px rgba(237, 29, 36, 0.25);
+}
+
+.sort-select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .controls { flex-direction: column; }
+  .sort-select { width: 100%; }
 }
 
 #search {

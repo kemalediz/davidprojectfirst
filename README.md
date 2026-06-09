@@ -12,9 +12,11 @@ Wikipedia. For each character it documents:
 - **Their powers and abilities**
 - **Their storyline** plus a fun "Did You Know?" fact
 
-The site has live search (by name, alias, actor, power, film, team or creator)
-and category filters (Hero / Villain / Anti-Hero). Click any character card to
-open a full detail view.
+The site has live search (by name, alias, actor, power, film, team or creator),
+category filters (Hero / Villain / Anti-Hero) and sorting (A–Z, Z–A, or by
+creation year). Click any character card to open a full detail view. Each
+character has a shareable URL (e.g. `…/#/c/iron-man`) that opens straight to
+their page, and the page title updates to match.
 
 **Sign-in is optional** (Google or email/password, via Firebase Authentication)
 and is only needed for the one user-specific feature: **favourites**. Signed-in
