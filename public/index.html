@@ -3,44 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign In / Sign Up</title>
+  <title>Marvelpedia — The Marvel Characters Wiki</title>
+  <meta name="description" content="A Marvel characters wiki: creation history, films, actors, powers and storylines for iconic Marvel heroes and villains." />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="card">
-    <h1>Welcome</h1>
-    <div class="tabs">
-      <button id="tab-signin" class="tab active" type="button">Sign In</button>
-      <button id="tab-signup" class="tab" type="button">Sign Up</button>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#" aria-label="Marvelpedia home">
+        <span class="brand-mark">MARVEL</span><span class="brand-sub">pedia</span>
+      </a>
+      <p class="tagline">The wiki of Marvel characters &mdash; origins, films, actors, powers &amp; stories</p>
+      <div class="search-wrap">
+        <input
+          id="search"
+          type="search"
+          placeholder="Search characters, actors, powers, films…"
+          aria-label="Search characters"
+          autocomplete="off"
+        />
+      </div>
     </div>
+  </header>
 
-    <form id="signin-form" class="form active">
-      <label>
-        Username
-        <input name="username" type="text" autocomplete="username" required />
-      </label>
-      <label>
-        Password
-        <input name="password" type="password" autocomplete="current-password" required />
-      </label>
-      <button type="submit">Sign In</button>
-    </form>
+  <nav class="filters" id="filters" aria-label="Filter by category">
+    <!-- Filter chips injected by app.js -->
+  </nav>
 
-    <form id="signup-form" class="form">
-      <label>
-        Username
-        <input name="username" type="text" autocomplete="username" required />
-      </label>
-      <label>
-        Password
-        <input name="password" type="password" autocomplete="new-password" required />
-      </label>
-      <button type="submit">Create Account</button>
-    </form>
-
-    <div id="message" class="message"></div>
+  <main class="container">
+    <p id="result-count" class="result-count" aria-live="polite"></p>
+    <section id="grid" class="grid" aria-label="Character list">
+      <!-- Cards injected by app.js -->
+    </section>
+    <p id="empty" class="empty" hidden>No characters match your search.</p>
   </main>
 
+  <footer class="site-footer">
+    <p>
+      Marvelpedia is a fan-made educational reference. Marvel, all character names and
+      related indicia are trademarks of Marvel Characters, Inc. Not affiliated with or
+      endorsed by Marvel or The Walt Disney Company.
+    </p>
+  </footer>
+
+  <!-- Character detail modal -->
+  <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="document">
+      <button class="modal-close" data-close aria-label="Close">&times;</button>
+      <div id="modal-body"><!-- Detail injected by app.js --></div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
