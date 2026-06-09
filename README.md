@@ -27,6 +27,15 @@ Firestore under `users/{uid}`.
 It's plain HTML/CSS/JS with no build step — it uses the Firebase **modular SDK
 loaded over the CDN** as ES modules.
 
+### Works out of the box
+
+You don't need Firebase just to browse. The full character set ships in
+`public/data.js`, and the app falls back to it automatically when Firebase
+isn't configured (or Firestore is unreachable/empty) — so `python3 backend.py`
+gives you a working wiki immediately. Configuring Firebase adds **live data**
+(edit characters in Firestore) and **favourites**. A blue notice bar tells you
+when the built-in set is being used.
+
 ## Setup
 
 ### 1. Create a Firebase project

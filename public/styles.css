@@ -203,6 +203,26 @@ body {
   padding: 18px 20px 60px;
 }
 
+.notice {
+  background: rgba(63, 167, 255, 0.12);
+  border: 1px solid rgba(63, 167, 255, 0.35);
+  border-radius: 10px;
+  padding: 11px 16px;
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.notice[hidden] { display: none; }
+
+.notice code {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.notice a { color: var(--hero); font-weight: 700; }
+
 .result-count {
   color: var(--muted);
   font-size: 13px;

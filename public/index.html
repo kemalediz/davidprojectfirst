@@ -46,6 +46,7 @@
   <nav class="filters" id="filters" aria-label="Filter by category"></nav>
 
   <main class="container">
+    <p id="notice" class="notice" hidden></p>
     <p id="result-count" class="result-count" aria-live="polite"></p>
     <section id="grid" class="grid" aria-label="Character list"></section>
     <p id="empty" class="empty" hidden>No characters match your search.</p>
@@ -121,6 +122,9 @@
     </div>
   </div>
 
+  <!-- Bundled dataset (window.MARVEL_CHARACTERS): used to seed Firestore and as
+       an offline fallback so the wiki works even before Firebase is configured. -->
+  <script src="data.js"></script>
   <!-- auth.js wires up optional login; app.js loads the public wiki + favourites -->
   <script type="module" src="auth.js"></script>
 </body>

@@ -21,6 +21,7 @@ const els = {
   sort: document.getElementById("sort"),
   count: document.getElementById("result-count"),
   empty: document.getElementById("empty"),
+  notice: document.getElementById("notice"),
   dataMessage: document.getElementById("data-message"),
   modal: document.getElementById("modal"),
   modalBody: document.getElementById("modal-body"),
@@ -55,6 +56,14 @@ function initials(name) {
   const parts = cleaned.split(/\s+/).filter(Boolean);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Stable id from a name — matches the document IDs used by the Firestore seeder.
+function slug(name) {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 function haystack(c) {
@@ -447,12 +456,43 @@ function showDataMessage(html) {
   els.dataMessage.hidden = false;
 }
 
+function showNotice(html) {
+  if (!html) {
+    els.notice.hidden = true;
+    return;
+  }
+  els.notice.innerHTML = html;
+  els.notice.hidden = false;
+}
+
+function finish() {
+  render();
+  // If the page was opened with a #/c/<id> link, show that character.
+  openFromHash();
+}
+
+// Use the dataset bundled with the page (data.js) — keeps the wiki working
+// offline / before Firebase is set up.
+function loadLocal() {
+  const local = window.MARVEL_CHARACTERS || [];
+  characters = local
+    .map((c) => ({ _id: slug(c.name), ...c }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return characters.length > 0;
+}
+
 async function initWiki() {
+  // No Firebase config → run entirely on the bundled dataset.
   if (!isConfigured) {
-    showDataMessage(
-      "<strong>Firebase isn't configured yet.</strong><br />" +
-        "Add your project config in <code>public/firebase-config.js</code> (see README)."
-    );
+    if (loadLocal()) {
+      finish();
+      showNotice(
+        "Showing the built-in character set. Configure Firebase in " +
+          "<code>public/firebase-config.js</code> to enable live data and favourites (see README)."
+      );
+    } else {
+      showDataMessage("<strong>No character data found.</strong>");
+    }
     return;
   }
 
@@ -468,28 +508,44 @@ async function initWiki() {
     characters = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
     characters.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   } catch (err) {
-    els.count.textContent = "";
-    showDataMessage(
-      "<strong>Couldn't load characters from Firestore.</strong><br />" +
-        "Check your Firestore rules allow public reads of the <code>characters</code> " +
-        `collection. (${escapeHtml(err.code || err.message)})`
-    );
+    // Firestore unreachable / rules block reads → fall back to bundled data.
+    if (loadLocal()) {
+      finish();
+      showNotice(
+        "Couldn't reach Firestore — showing the built-in character set. " +
+          `(${escapeHtml(err.code || err.message)})`
+      );
+    } else {
+      els.count.textContent = "";
+      showDataMessage(
+        "<strong>Couldn't load characters from Firestore.</strong><br />" +
+          "Check your Firestore rules allow public reads of the <code>characters</code> " +
+          `collection. (${escapeHtml(err.code || err.message)})`
+      );
+    }
     return;
   }
 
+  // Firestore reachable but empty → use bundled data and point to the seeder.
   if (characters.length === 0) {
-    els.count.textContent = "";
-    showDataMessage(
-      "<strong>No characters in Firestore yet.</strong><br />" +
-        'Open <a href="seed.html">seed.html</a> (sign in first) to upload the ' +
-        "starter dataset, then reload this page."
-    );
+    if (loadLocal()) {
+      finish();
+      showNotice(
+        'Showing the built-in character set. Open <a href="seed.html">seed.html</a> ' +
+          "(sign in first) to upload it to Firestore for live editing."
+      );
+    } else {
+      els.count.textContent = "";
+      showDataMessage(
+        "<strong>No characters in Firestore yet.</strong><br />" +
+          'Open <a href="seed.html">seed.html</a> (sign in first) to upload the starter dataset.'
+      );
+    }
     return;
   }
 
-  render();
-  // If the page was opened with a #/c/<id> link, show that character.
-  openFromHash();
+  showNotice("");
+  finish();
 }
 
 // Load the public wiki immediately on page load.
