@@ -821,6 +821,47 @@ body {
   color: #fff;
 }
 
+/* ---------- Cross-linking (clickable teams / related) ---------- */
+.team-link {
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.team-link:hover {
+  border-color: var(--marvel-red);
+  color: var(--marvel-red);
+}
+
+.rel-chip {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.tag-list li:has(.rel-chip) {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.rel-chip {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 11px;
+}
+
+.rel-chip:hover {
+  border-color: var(--marvel-red);
+  color: var(--marvel-red);
+}
+
 @media (max-width: 560px) {
   .detail-grid { grid-template-columns: 1fr; }
   .modal-panel { padding: 22px; }

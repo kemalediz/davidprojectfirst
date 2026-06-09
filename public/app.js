@@ -216,7 +216,31 @@ function tagListHtml(items) {
   return `<ul class="tag-list">${items.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
 }
 
+// Other characters that share at least one team with c (for cross-linking).
+function relatedTo(c) {
+  const teams = new Set(c.teams || []);
+  if (teams.size === 0) return [];
+  return characters
+    .filter((o) => o._id !== c._id && (o.teams || []).some((t) => teams.has(t)))
+    .slice(0, 8);
+}
+
 function detailHtml(c) {
+  const related = relatedTo(c);
+  const relatedSection = related.length
+    ? `<div class="detail-section">
+         <h4>Related Characters</h4>
+         <ul class="tag-list">
+           ${related
+             .map(
+               (r) =>
+                 `<li><button class="rel-chip" data-rel-id="${escapeHtml(r._id)}" type="button">${escapeHtml(r.name)}</button></li>`
+             )
+             .join("")}
+         </ul>
+       </div>`
+    : "";
+
   return `
     <div class="detail-head">
       <div class="detail-avatar">${escapeHtml(initials(c.name))}</div>
@@ -229,7 +253,12 @@ function detailHtml(c) {
 
     <div class="detail-badges">
       <span class="badge cat-${escapeHtml(c.category)}">${escapeHtml(c.category)}</span>
-      ${(c.teams || []).map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join("")}
+      ${(c.teams || [])
+        .map(
+          (t) =>
+            `<button class="badge team-link" data-team="${escapeHtml(t)}" type="button" title="Show ${escapeHtml(t)} characters">${escapeHtml(t)}</button>`
+        )
+        .join("")}
     </div>
 
     <div class="detail-section">
@@ -269,7 +298,20 @@ function detailHtml(c) {
     </div>
 
     ${c.facts ? `<div class="detail-section"><h4>Did You Know?</h4><div class="fact">${escapeHtml(c.facts)}</div></div>` : ""}
+
+    ${relatedSection}
   `;
+}
+
+// Filter the grid to a team and jump back to the list.
+function filterByTeam(team) {
+  closeModal();
+  activeCategory = "All";
+  favoritesOnly = false;
+  query = team.toLowerCase();
+  els.search.value = team;
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function openModal(index) {
@@ -296,6 +338,16 @@ function openModal(index) {
       favBtn.setAttribute("aria-pressed", String(on));
     });
   }
+
+  // Clicking a team badge filters the grid to that team.
+  els.modalBody.querySelectorAll(".team-link").forEach((btn) => {
+    btn.addEventListener("click", () => filterByTeam(btn.dataset.team));
+  });
+
+  // Clicking a related character opens that character's detail.
+  els.modalBody.querySelectorAll(".rel-chip").forEach((btn) => {
+    btn.addEventListener("click", () => openById(btn.dataset.relId));
+  });
 }
 
 function closeModal() {

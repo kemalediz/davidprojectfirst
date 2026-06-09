@@ -1955,5 +1955,263 @@ window.MARVEL_CHARACTERS = [
       "as a heroic 'super hero from another Earth,' manipulating Spider-Man and the public. " +
       "Even in death he strikes a final blow by exposing Peter Parker's identity.",
     facts: "His dying act unmasked Spider-Man to the entire world."
+  },
+  {
+    name: "Cable",
+    alias: "Nathan Summers",
+    teams: ["X-Force"],
+    category: "Anti-Hero",
+    created: 1990,
+    firstAppearance: "The New Mutants #87 (1990)",
+    creators: ["Louise Simonson", "Rob Liefeld"],
+    actors: ["Josh Brolin"],
+    films: ["Deadpool 2 (2018)"],
+    powers: [
+      "Time-traveling soldier from a dystopian future",
+      "Telekinesis and telepathy (held back by a techno-organic virus)",
+      "Cybernetic arm and eye; master of futuristic weaponry",
+      "Elite tactician and marksman"
+    ],
+    storyline: "The time-displaced son of Cyclops, Cable journeys from a grim future to " +
+      "alter the timeline. Gruff and heavily armed, he clashes with and then allies with " +
+      "Deadpool to protect a young mutant from becoming a monster.",
+    facts: "He is the son of Cyclops and a clone of Jean Grey."
+  },
+  {
+    name: "Domino",
+    alias: "Neena Thurman",
+    teams: ["X-Force"],
+    category: "Hero",
+    created: 1992,
+    firstAppearance: "The New Mutants #98 (1992)",
+    creators: ["Fabian Nicieza", "Rob Liefeld"],
+    actors: ["Zazie Beetz"],
+    films: ["Deadpool 2 (2018)"],
+    powers: [
+      "Subconsciously manipulates probability — luck bends in her favour",
+      "Skilled markswoman and combatant",
+      "Peak human agility and reflexes"
+    ],
+    storyline: "A mutant mercenary whose power is luck itself, Domino lets improbable " +
+      "fortune carry her through impossible odds. She joins Deadpool's X-Force and proves " +
+      "that 'luck' is, in fact, a very effective superpower.",
+    facts: "She insists luck is a power, even when Deadpool says it isn't cinematic."
+  },
+  {
+    name: "Juggernaut",
+    alias: "Cain Marko",
+    teams: ["Brotherhood of Mutants"],
+    category: "Villain",
+    created: 1965,
+    firstAppearance: "The X-Men #12 (1965)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Vinnie Jones", "Ryan Reynolds (voice)"],
+    films: ["X-Men: The Last Stand (2006)", "Deadpool 2 (2018)"],
+    powers: [
+      "Unstoppable once moving — virtually nothing can halt his momentum",
+      "Immense superhuman strength and durability",
+      "Mystically empowered by the gem of Cyttorak",
+      "Near-invulnerability"
+    ],
+    storyline: "Charles Xavier's resentful stepbrother Cain Marko gains the unstoppable " +
+      "power of the Juggernaut from a mystical gem. A walking wrecking ball, he is one of the " +
+      "X-Men's most physically overwhelming foes.",
+    facts: "Once he builds momentum, literally nothing can stop his charge."
+  },
+  {
+    name: "Sabretooth",
+    alias: "Victor Creed",
+    teams: ["Brotherhood of Mutants"],
+    category: "Villain",
+    created: 1977,
+    firstAppearance: "Iron Fist #14 (1977)",
+    creators: ["Chris Claremont", "John Byrne"],
+    actors: ["Tyler Mane", "Liev Schreiber"],
+    films: ["X-Men (2000)", "X-Men Origins: Wolverine (2009)"],
+    powers: [
+      "Accelerated healing factor",
+      "Superhuman strength, speed and senses",
+      "Retractable claws and fangs",
+      "Savage, feral fighting instinct"
+    ],
+    storyline: "A feral, near-immortal mutant and Wolverine's oldest enemy, Victor Creed " +
+      "revels in the hunt. Sharing a violent history with Logan, he embodies the savagery " +
+      "Wolverine constantly fights to suppress in himself.",
+    facts: "He and Wolverine share a long, blood-soaked history."
+  },
+  {
+    name: "The Mandarin",
+    alias: "Xu Wenwu",
+    teams: ["Ten Rings"],
+    category: "Villain",
+    created: 1964,
+    firstAppearance: "Tales of Suspense #50 (1964)",
+    creators: ["Stan Lee", "Don Heck"],
+    actors: ["Tony Leung"],
+    films: ["Shang-Chi and the Legend of the Ten Rings (2021)"],
+    powers: [
+      "Wields the ten mystical rings granting energy and combat power",
+      "Near-immortality across a thousand years",
+      "Peerless martial artist",
+      "Commander of the Ten Rings organization"
+    ],
+    storyline: "Having ruled the Ten Rings organization for a millennium with the power of " +
+      "the mystical rings, Wenwu is consumed by grief over his late wife. His obsession " +
+      "endangers the world and forces a reckoning with his son, Shang-Chi.",
+    facts: "His version reclaims the 'Mandarin' name after a fake decoy in Iron Man 3."
+  },
+  {
+    name: "Abomination",
+    alias: "Emil Blonsky",
+    teams: [],
+    category: "Villain",
+    created: 1967,
+    firstAppearance: "Tales to Astonish #90 (1967)",
+    creators: ["Stan Lee", "Gil Kane"],
+    actors: ["Tim Roth"],
+    films: [
+      "The Incredible Hulk (2008)", "Shang-Chi and the Legend of the Ten Rings (2021)",
+      "She-Hulk: Attorney at Law (TV, 2022)"
+    ],
+    powers: [
+      "Hulk-level superhuman strength and durability",
+      "Retains his intellect while transformed",
+      "Scaled, monstrous physiology with regeneration"
+    ],
+    storyline: "Soldier Emil Blonsky combines the Super-Soldier Serum with gamma radiation, " +
+      "becoming the monstrous Abomination to battle the Hulk. Years later he resurfaces in " +
+      "underground fight clubs and, surprisingly, seeks rehabilitation.",
+    facts: "Unlike the Hulk, he stays monstrous and keeps his full intelligence."
+  },
+  {
+    name: "Taskmaster",
+    alias: "Antonia Dreykov",
+    teams: [],
+    category: "Villain",
+    created: 1980,
+    firstAppearance: "The Avengers #195 (1980)",
+    creators: ["David Michelinie", "George Pérez"],
+    actors: ["Olga Kurylenko"],
+    films: ["Black Widow (2021)"],
+    powers: [
+      "Photographic reflexes — instantly mimics any fighter's moves",
+      "Master of multiple weapons and combat styles",
+      "Peak human conditioning"
+    ],
+    storyline: "Able to perfectly copy the combat skills of anyone observed, Taskmaster is " +
+      "a near-unbeatable fighter. In the MCU, the controlled assassin is revealed to be " +
+      "Dreykov's daughter, freed from the Red Room's mind control by Black Widow.",
+    facts: "Watching a fighter once is enough for Taskmaster to copy them perfectly."
+  },
+  {
+    name: "Ronan the Accuser",
+    alias: "Ronan",
+    teams: ["Kree"],
+    category: "Villain",
+    created: 1967,
+    firstAppearance: "Fantastic Four #65 (1967)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Lee Pace"],
+    films: ["Guardians of the Galaxy (2014)", "Captain Marvel (2019)"],
+    powers: [
+      "Superhuman Kree strength and durability",
+      "Wields the energy-channeling Universal Weapon (his war-hammer)",
+      "Briefly harnesses an Infinity Stone",
+      "Fanatical military commander"
+    ],
+    storyline: "A zealous Kree warrior who rejects peace with the Xandarians, Ronan seeks to " +
+      "annihilate them. Wielding the Power Stone in his hammer, he is stopped only by the " +
+      "newly united Guardians of the Galaxy.",
+    facts: "He briefly wields the Power Stone before the Guardians overload it."
+  },
+  {
+    name: "The Ancient One",
+    alias: "The Ancient One",
+    teams: ["Masters of the Mystic Arts"],
+    category: "Hero",
+    created: 1963,
+    firstAppearance: "Strange Tales #110 (1963)",
+    creators: ["Stan Lee", "Steve Ditko"],
+    actors: ["Tilda Swinton"],
+    films: ["Doctor Strange (2016)", "Avengers: Endgame (2019)"],
+    powers: [
+      "Sorcerer Supreme with mastery of the mystic arts",
+      "Draws power from the Dark Dimension for extended life",
+      "Manipulates energy, dimensions and the astral plane",
+      "Centuries of accumulated mystical knowledge"
+    ],
+    storyline: "The long-lived Sorcerer Supreme and head of Kamar-Taj, the Ancient One " +
+      "trains Doctor Strange in sorcery. Wise but morally complex, she defends Earth from " +
+      "mystical threats until her death at the hands of Kaecilius's followers.",
+    facts: "She secretly drew on forbidden Dark Dimension power to prolong her life."
+  },
+  {
+    name: "Heimdall",
+    alias: "Heimdall",
+    teams: [],
+    category: "Hero",
+    created: 1962,
+    firstAppearance: "Journey into Mystery #85 (1962)",
+    creators: ["Stan Lee", "Larry Lieber", "Jack Kirby"],
+    actors: ["Idris Elba"],
+    films: [
+      "Thor (2011)", "Thor: The Dark World (2013)", "Avengers: Age of Ultron (2015)",
+      "Thor: Ragnarok (2017)", "Avengers: Infinity War (2018)"
+    ],
+    powers: [
+      "All-seeing, all-hearing senses spanning the Nine Realms",
+      "Guardian and operator of the Bifrost (rainbow bridge)",
+      "Superhuman Asgardian strength and durability",
+      "Master swordsman"
+    ],
+    storyline: "The vigilant gatekeeper of Asgard, Heimdall can see and hear across all the " +
+      "realms. Loyal to Thor and his people, he helps the Asgardians escape Ragnarok before " +
+      "sacrificing himself to send Hulk to warn Earth of Thanos.",
+    facts: "His final act sends the Hulk crashing into Doctor Strange's Sanctum."
+  },
+  {
+    name: "Pepper Potts",
+    alias: "Virginia 'Pepper' Potts",
+    teams: ["Avengers"],
+    category: "Hero",
+    created: 1963,
+    firstAppearance: "Tales of Suspense #45 (1963)",
+    creators: ["Stan Lee", "Robert Bernstein", "Don Heck"],
+    actors: ["Gwyneth Paltrow"],
+    films: [
+      "Iron Man (2008)", "Iron Man 2 (2010)", "Iron Man 3 (2013)",
+      "Avengers: Age of Ultron (2015)", "Avengers: Infinity War (2018)",
+      "Avengers: Endgame (2019)"
+    ],
+    powers: [
+      "Brilliant CEO and businesswoman, leading Stark Industries",
+      "Briefly dons the Rescue armor with flight and repulsors",
+      "Resourceful and level-headed under pressure"
+    ],
+    storyline: "Tony Stark's assistant turned CEO and partner, Pepper Potts is the steady " +
+      "heart of his life. In Endgame she suits up in her own Rescue armor to fight beside " +
+      "the Avengers in the final battle against Thanos.",
+    facts: "Her Rescue armor finally lets her stand on the battlefield in Endgame."
+  },
+  {
+    name: "Gorr the God Butcher",
+    alias: "Gorr",
+    teams: [],
+    category: "Villain",
+    created: 2013,
+    firstAppearance: "Thor: God of Thunder #2 (2013)",
+    creators: ["Jason Aaron", "Esad Ribic"],
+    actors: ["Christian Bale"],
+    films: ["Thor: Love and Thunder (2022)"],
+    powers: [
+      "Wields the All-Black the Necrosword, a living symbiotic blade",
+      "Creates shadow monsters and manipulates darkness",
+      "Near-immortality and god-slaying power",
+      "Shadow travel across the cosmos"
+    ],
+    storyline: "After his prayers go unanswered and his family dies, the grief-stricken Gorr " +
+      "vows to kill every god in the universe with the cursed Necrosword. His crusade brings " +
+      "him into a tragic confrontation with Thor.",
+    facts: "The Necrosword corrupts and amplifies its wielder's vengeance."
   }
 ];
