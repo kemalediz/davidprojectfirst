@@ -1,6 +1,7 @@
-// Firebase Authentication gate for Marvelpedia.
-// Shows a sign-in / sign-up screen and, once a user is authenticated, reveals
-// the wiki and loads characters from Firestore (see app.js → initWiki).
+// Optional sign-in for Marvelpedia.
+// Browsing the wiki is public — sign-in is only needed to save favourites.
+// On auth changes this notifies app.js via setUser() so it can load/clear the
+// user's favourites.
 
 import { auth, isConfigured } from "./firebase-config.js";
 import {
@@ -11,13 +12,14 @@ import {
   GoogleAuthProvider,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initWiki } from "./app.js";
+import { setUser } from "./app.js";
 
-const views = {
-  auth: document.getElementById("auth-view"),
-  loading: document.getElementById("loading-view"),
-  app: document.getElementById("app-view"),
-};
+const loginModal = document.getElementById("login-modal");
+const signinOpen = document.getElementById("signin-open");
+const userBox = document.getElementById("user-box");
+const userEmailEl = document.getElementById("user-email");
+const signoutBtn = document.getElementById("signout-btn");
+const googleBtn = document.getElementById("google-btn");
 
 const tabs = {
   signin: document.getElementById("tab-signin"),
@@ -28,23 +30,34 @@ const forms = {
   signup: document.getElementById("signup-form"),
 };
 const messageEl = document.getElementById("auth-message");
-const userEmailEl = document.getElementById("user-email");
-const signoutBtn = document.getElementById("signout-btn");
-const googleBtn = document.getElementById("google-btn");
 
 const googleProvider = new GoogleAuthProvider();
 
-let wikiLoaded = false;
+// ---- Login modal open/close ------------------------------------------------
 
-// ---- View switching --------------------------------------------------------
-
-function show(view) {
-  Object.entries(views).forEach(([key, el]) => {
-    el.hidden = key !== view;
-  });
+function openLogin() {
+  if (!isConfigured) {
+    setMessage("Firebase isn't configured yet — add your config in public/firebase-config.js.", "error");
+  }
+  loginModal.hidden = false;
+  document.body.style.overflow = "hidden";
 }
 
-// ---- Friendly Firebase error messages --------------------------------------
+function closeLogin() {
+  loginModal.hidden = true;
+  document.body.style.overflow = "";
+  setMessage("", "");
+}
+
+signinOpen.addEventListener("click", openLogin);
+loginModal.querySelectorAll("[data-login-close]").forEach((el) => el.addEventListener("click", closeLogin));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !loginModal.hidden) closeLogin();
+});
+// app.js asks us to open the login modal when a signed-out user taps a favourite.
+document.addEventListener("request-login", openLogin);
+
+// ---- Friendly error messages -----------------------------------------------
 
 function describeError(err) {
   const code = (err && err.code) || "";
@@ -74,7 +87,7 @@ function setMessage(text, kind) {
   messageEl.className = "message" + (kind ? " " + kind : "");
 }
 
-// ---- Tab handling ----------------------------------------------------------
+// ---- Tabs ------------------------------------------------------------------
 
 function setActiveTab(form) {
   Object.entries(forms).forEach(([key, el]) => el.classList.toggle("active", key === form));
@@ -85,7 +98,7 @@ function setActiveTab(form) {
 tabs.signin.addEventListener("click", () => setActiveTab("signin"));
 tabs.signup.addEventListener("click", () => setActiveTab("signup"));
 
-// ---- Form submission -------------------------------------------------------
+// ---- Submission ------------------------------------------------------------
 
 function credentials(form) {
   const data = new FormData(form);
@@ -97,7 +110,7 @@ async function handleAuth(action, form, pendingText) {
   const { email, password } = credentials(form);
   try {
     await action(auth, email, password);
-    // onAuthStateChanged takes over from here.
+    // onAuthStateChanged closes the modal and updates the UI.
   } catch (err) {
     setMessage(describeError(err), "error");
   }
@@ -117,46 +130,36 @@ googleBtn.addEventListener("click", async () => {
   setMessage("Opening Google sign-in…", "");
   try {
     await signInWithPopup(auth, googleProvider);
-    // onAuthStateChanged takes over from here.
   } catch (err) {
     const text = describeError(err);
-    if (text) setMessage(text, "error");
-    else setMessage("", "");
+    setMessage(text, text ? "error" : "");
   }
 });
 
 signoutBtn.addEventListener("click", () => signOut(auth));
 
-// ---- Auth state → which view to show ---------------------------------------
+// ---- Auth state ------------------------------------------------------------
 
 if (!isConfigured) {
-  show("auth");
-  setActiveTab("signin");
-  setMessage(
-    "Firebase isn't configured yet. Add your project config in public/firebase-config.js (see README).",
-    "error"
-  );
-  // Disable the forms and Google button until configured.
+  // Browsing still works; the login controls just won't function.
   [forms.signin, forms.signup].forEach((f) =>
     f.querySelectorAll("input, button").forEach((el) => (el.disabled = true))
   );
   googleBtn.disabled = true;
 } else {
-  onAuthStateChanged(auth, async (user) => {
+  onAuthStateChanged(auth, (user) => {
     if (user) {
       userEmailEl.textContent = user.email || "Signed in";
-      show("app");
-      setMessage("", "");
+      userBox.hidden = false;
+      signinOpen.hidden = true;
       forms.signin.reset();
       forms.signup.reset();
-      if (!wikiLoaded) {
-        wikiLoaded = true;
-        await initWiki();
-      }
+      closeLogin();
     } else {
-      wikiLoaded = false;
-      show("auth");
-      setActiveTab("signin");
+      userBox.hidden = true;
+      signinOpen.hidden = false;
     }
+    // Tell the wiki who's signed in so it can load/clear favourites.
+    setUser(user || null);
   });
 }

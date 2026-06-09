@@ -327,6 +327,11 @@ body {
   background: linear-gradient(135deg, var(--marvel-red), var(--marvel-red-dark));
 }
 
+.detail-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .detail-head h2 {
   margin: 0;
   font-size: 26px;
@@ -529,6 +534,7 @@ body {
 }
 
 .auth-card button[type="submit"],
+.login-panel button[type="submit"],
 #seed-btn {
   margin-top: 4px;
   padding: 12px;
@@ -543,15 +549,27 @@ body {
 }
 
 .auth-card button[type="submit"]:hover:not(:disabled),
+.login-panel button[type="submit"]:hover:not(:disabled),
 #seed-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
 .auth-card button:disabled,
+.login-panel button:disabled,
 #seed-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Login lives inside a modal panel */
+.login-panel {
+  width: min(420px, 100%);
+  text-align: center;
+}
+
+.login-panel .auth-brand {
+  margin-top: 4px;
 }
 
 .auth-divider {
@@ -611,6 +629,7 @@ body {
 .message.success { color: #4ade80; }
 
 .auth-card a,
+.login-panel a,
 .data-message a {
   color: var(--marvel-red);
   font-weight: 700;
@@ -694,9 +713,79 @@ body {
   font-size: 13px;
 }
 
+/* ---------- Header auth control ---------- */
+.auth-control {
+  display: flex;
+  align-items: center;
+}
+
+.signin-open {
+  border: 1px solid var(--marvel-red);
+  background: var(--marvel-red);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.signin-open:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(237, 29, 36, 0.35);
+}
+
+.signin-open[hidden],
+.user-box[hidden] {
+  display: none;
+}
+
+/* ---------- Favourite buttons ---------- */
+.fav-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: transform 0.15s, color 0.15s;
+}
+
+.fav-btn:hover { transform: scale(1.15); color: var(--marvel-red); }
+.fav-btn.on { color: var(--marvel-red); }
+
+.card-fav {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-size: 20px;
+  z-index: 2;
+}
+
+.detail-fav {
+  font-size: 30px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+/* nudge the card title clear of the corner heart */
+.card .card-avatar { margin-left: 26px; }
+
+/* ---------- Favourites filter chip ---------- */
+.chip-fav {
+  border-color: rgba(237, 29, 36, 0.5);
+  color: var(--marvel-red);
+}
+
+.chip-fav.active {
+  background: var(--marvel-red);
+  border-color: var(--marvel-red);
+  color: #fff;
+}
+
 @media (max-width: 560px) {
   .detail-grid { grid-template-columns: 1fr; }
   .modal-panel { padding: 22px; }
   .brand-mark, .brand-sub { font-size: 24px; }
-  .header-top { flex-direction: column; gap: 8px; }
 }

@@ -1,13 +1,17 @@
-// Marvelpedia wiki UI — loads characters from Cloud Firestore and renders a
-// searchable, filterable grid with a detail modal. Exposed as initWiki(), which
-// auth.js calls once a user is signed in.
+// Marvelpedia wiki UI.
+// The character list is PUBLIC — anyone can browse it and read full details
+// without signing in (like Wikipedia). Signing in (see auth.js) only unlocks
+// per-user favourites, which are stored in Firestore under users/{uid}.
 
-import { db } from "./firebase-config.js";
+import { db, isConfigured } from "./firebase-config.js";
 import {
   collection,
   getDocs,
   query as fsQuery,
   orderBy,
+  doc,
+  getDoc,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const els = {
@@ -24,6 +28,11 @@ const els = {
 let characters = [];
 let activeCategory = "All";
 let query = "";
+let favoritesOnly = false;
+
+// Favourites state (only meaningful when signed in).
+let currentUser = null;
+let favorites = new Set();
 
 // ---- Helpers ---------------------------------------------------------------
 
@@ -59,25 +68,39 @@ function haystack(c) {
 function matches(c) {
   const inCategory = activeCategory === "All" || c.category === activeCategory;
   const inQuery = !query || haystack(c).includes(query);
-  return inCategory && inQuery;
+  const inFavorites = !favoritesOnly || favorites.has(c._id);
+  return inCategory && inQuery && inFavorites;
 }
 
 // ---- Filters ---------------------------------------------------------------
 
 function buildFilters() {
   const categories = ["All", ...Array.from(new Set(characters.map((c) => c.category)))];
-  els.filters.innerHTML = categories
+  const favChip =
+    `<button class="chip chip-fav${favoritesOnly ? " active" : ""}" data-fav="1">` +
+    `★ Favourites${currentUser ? ` (${favorites.size})` : ""}</button>`;
+  const catChips = categories
     .map(
       (cat) =>
-        `<button class="chip${cat === activeCategory ? " active" : ""}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`
+        `<button class="chip${cat === activeCategory && !favoritesOnly ? " active" : ""}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`
     )
     .join("");
+  els.filters.innerHTML = favChip + catChips;
 
-  els.filters.querySelectorAll(".chip").forEach((chip) => {
+  els.filters.querySelector("[data-fav]").addEventListener("click", () => {
+    if (!currentUser) {
+      // Browsing is public, but favourites need an account.
+      document.dispatchEvent(new CustomEvent("request-login"));
+      return;
+    }
+    favoritesOnly = !favoritesOnly;
+    render();
+  });
+
+  els.filters.querySelectorAll("[data-cat]").forEach((chip) => {
     chip.addEventListener("click", () => {
       activeCategory = chip.dataset.cat;
-      els.filters.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
+      favoritesOnly = false;
       render();
     });
   });
@@ -85,10 +108,22 @@ function buildFilters() {
 
 // ---- Cards / grid ----------------------------------------------------------
 
+function favButtonHtml(id, kind) {
+  const on = favorites.has(id);
+  return (
+    `<button class="fav-btn ${kind}${on ? " on" : ""}" data-fav-id="${escapeHtml(id)}" ` +
+    `type="button" aria-pressed="${on}" ` +
+    `title="${on ? "Remove from favourites" : "Add to favourites"}" ` +
+    `aria-label="${on ? "Remove from favourites" : "Add to favourites"}">` +
+    `${on ? "♥" : "♡"}</button>`
+  );
+}
+
 function cardHtml(c, index) {
   const teams = c.teams && c.teams.length ? c.teams[0] : "Unaffiliated";
   return `
     <article class="card" data-index="${index}" tabindex="0" role="button" aria-label="View ${escapeHtml(c.name)}">
+      ${favButtonHtml(c._id, "card-fav")}
       <span class="card-year">${escapeHtml(c.created)}</span>
       <div class="card-avatar">${escapeHtml(initials(c.name))}</div>
       <h3>${escapeHtml(c.name)}</h3>
@@ -101,25 +136,49 @@ function cardHtml(c, index) {
 }
 
 function render() {
+  // Rebuild filters so the favourites count / active state stays in sync.
+  buildFilters();
+
   const visible = [];
   characters.forEach((c, i) => {
     if (matches(c)) visible.push({ c, i });
   });
 
   els.grid.innerHTML = visible.map(({ c, i }) => cardHtml(c, i)).join("");
-  els.empty.hidden = visible.length !== 0 || characters.length === 0;
+
+  if (favoritesOnly && currentUser && favorites.size === 0) {
+    els.empty.hidden = true;
+    els.grid.innerHTML = "";
+    showDataMessage("You haven't favourited any characters yet. Tap the ♡ on a character to save it here.");
+  } else {
+    els.dataMessage.hidden = true;
+    els.empty.hidden = visible.length !== 0 || characters.length === 0;
+  }
+
   els.count.textContent = characters.length
     ? `${visible.length} of ${characters.length} characters`
     : "";
 
+  // Open detail on card click/keyboard.
   els.grid.querySelectorAll(".card").forEach((card) => {
     const open = () => openModal(Number(card.dataset.index));
-    card.addEventListener("click", open);
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".fav-btn")) return; // handled separately
+      open();
+    });
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         open();
       }
+    });
+  });
+
+  // Wire up favourite buttons.
+  els.grid.querySelectorAll(".fav-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleFavorite(btn.dataset.favId);
     });
   });
 }
@@ -139,10 +198,11 @@ function detailHtml(c) {
   return `
     <div class="detail-head">
       <div class="detail-avatar">${escapeHtml(initials(c.name))}</div>
-      <div>
+      <div class="detail-head-text">
         <h2 id="modal-title">${escapeHtml(c.name)}</h2>
         <p class="detail-alias">${escapeHtml(c.alias)}</p>
       </div>
+      ${favButtonHtml(c._id, "detail-fav")}
     </div>
 
     <div class="detail-badges">
@@ -197,6 +257,19 @@ function openModal(index) {
   els.modal.hidden = false;
   els.modal.scrollTop = 0;
   document.body.style.overflow = "hidden";
+
+  const favBtn = els.modalBody.querySelector(".fav-btn");
+  if (favBtn) {
+    favBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleFavorite(favBtn.dataset.favId);
+      // Refresh the modal button state in place.
+      const on = favorites.has(favBtn.dataset.favId);
+      favBtn.classList.toggle("on", on);
+      favBtn.textContent = on ? "♥" : "♡";
+      favBtn.setAttribute("aria-pressed", String(on));
+    });
+  }
 }
 
 function closeModal() {
@@ -216,48 +289,102 @@ els.search.addEventListener("input", (e) => {
   render();
 });
 
-// ---- Data loading ----------------------------------------------------------
+// ---- Favourites (per-user, stored in Firestore) ---------------------------
+
+function userDocRef() {
+  return doc(db, "users", currentUser.uid);
+}
+
+async function loadFavorites() {
+  favorites = new Set();
+  if (!currentUser) return;
+  try {
+    const snap = await getDoc(userDocRef());
+    const ids = (snap.exists() && snap.data().favorites) || [];
+    favorites = new Set(ids);
+  } catch (err) {
+    console.warn("Could not load favourites:", err.code || err.message);
+  }
+}
+
+async function toggleFavorite(id) {
+  if (!currentUser) {
+    document.dispatchEvent(new CustomEvent("request-login"));
+    return;
+  }
+  if (favorites.has(id)) favorites.delete(id);
+  else favorites.add(id);
+
+  // Re-render immediately for responsiveness; persist in the background.
+  render();
+  try {
+    await setDoc(userDocRef(), { favorites: Array.from(favorites) }, { merge: true });
+  } catch (err) {
+    console.warn("Could not save favourites:", err.code || err.message);
+  }
+}
+
+// Called by auth.js whenever the signed-in user changes (or signs out).
+export async function setUser(user) {
+  currentUser = user || null;
+  if (!currentUser) {
+    favorites = new Set();
+    favoritesOnly = false;
+  } else {
+    await loadFavorites();
+  }
+  if (characters.length) render();
+}
+
+// ---- Data loading (public) -------------------------------------------------
 
 function showDataMessage(html) {
   els.dataMessage.innerHTML = html;
   els.dataMessage.hidden = false;
 }
 
-// Called by auth.js once the user is authenticated.
-export async function initWiki() {
+async function initWiki() {
+  if (!isConfigured) {
+    showDataMessage(
+      "<strong>Firebase isn't configured yet.</strong><br />" +
+        "Add your project config in <code>public/firebase-config.js</code> (see README)."
+    );
+    return;
+  }
+
   els.count.textContent = "Loading characters…";
   els.dataMessage.hidden = true;
   try {
-    const snap = await getDocs(fsQuery(collection(db, "characters"), orderBy("name")));
-    characters = snap.docs.map((d) => d.data());
-  } catch (err) {
-    // Most commonly: no "name" index yet, or rules deny reads. Fall back to an
-    // unordered fetch, then sort client-side.
+    let snap;
     try {
-      const snap = await getDocs(collection(db, "characters"));
-      characters = snap.docs.map((d) => d.data());
-      characters.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-    } catch (err2) {
-      els.count.textContent = "";
-      showDataMessage(
-        `<strong>Couldn't load characters from Firestore.</strong><br />` +
-          `Check your Firestore security rules allow signed-in reads of the ` +
-          `<code>characters</code> collection. (${escapeHtml(err2.code || err2.message)})`
-      );
-      return;
+      snap = await getDocs(fsQuery(collection(db, "characters"), orderBy("name")));
+    } catch (_) {
+      snap = await getDocs(collection(db, "characters"));
     }
+    characters = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+    characters.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  } catch (err) {
+    els.count.textContent = "";
+    showDataMessage(
+      "<strong>Couldn't load characters from Firestore.</strong><br />" +
+        "Check your Firestore rules allow public reads of the <code>characters</code> " +
+        `collection. (${escapeHtml(err.code || err.message)})`
+    );
+    return;
   }
 
   if (characters.length === 0) {
     els.count.textContent = "";
     showDataMessage(
-      `<strong>No characters in Firestore yet.</strong><br />` +
-        `Open <a href="seed.html">seed.html</a> while signed in to upload the ` +
-        `starter dataset, then return here.`
+      "<strong>No characters in Firestore yet.</strong><br />" +
+        'Open <a href="seed.html">seed.html</a> (sign in first) to upload the ' +
+        "starter dataset, then reload this page."
     );
     return;
   }
 
-  buildFilters();
   render();
 }
+
+// Load the public wiki immediately on page load.
+initWiki();

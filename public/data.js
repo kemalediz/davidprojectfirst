@@ -1349,5 +1349,308 @@ window.MARVEL_CHARACTERS = [
       "most advanced technology. After her brother's death she synthesizes a new heart-shaped " +
       "herb and takes up the mantle of the Black Panther.",
     facts: "She is widely considered one of the smartest people in the MCU."
+  },
+  {
+    name: "Hela",
+    alias: "Hela Odinsdottir",
+    teams: [],
+    category: "Villain",
+    created: 1964,
+    firstAppearance: "Journey into Mystery #102 (1964)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Cate Blanchett"],
+    films: ["Thor: Ragnarok (2017)"],
+    powers: [
+      "Asgardian goddess of death with immense strength and durability",
+      "Generates and hurls bladed weapons at will",
+      "Near-immortality, drawing power from Asgard itself",
+      "Necromancy — raises armies of the dead"
+    ],
+    storyline: "Odin's firstborn and the goddess of death, Hela was imprisoned for ages " +
+      "after her conquests grew too bloody. Freed upon his death, she seizes Asgard and " +
+      "forces Thor and Loki to destroy the realm itself to stop her.",
+    facts: "She effortlessly shattered Thor's hammer Mjolnir with one hand."
+  },
+  {
+    name: "Killmonger",
+    alias: "Erik 'N'Jadaka' Stevens",
+    teams: [],
+    category: "Villain",
+    created: 1973,
+    firstAppearance: "Jungle Action #6 (1973)",
+    creators: ["Don McGregor", "Rich Buckler"],
+    actors: ["Michael B. Jordan"],
+    films: ["Black Panther (2018)"],
+    powers: [
+      "Elite black-ops and special-forces training",
+      "Master hand-to-hand combatant and tactician",
+      "Briefly wields the powers of the Black Panther",
+      "Ruthless strategic intelligence"
+    ],
+    storyline: "Abandoned son of a murdered Wakandan prince, Erik Killmonger returns to " +
+      "claim the throne and weaponize Wakanda's resources against the world's oppressors. " +
+      "A villain born of real injustice, his challenge reshapes T'Challa's view of his nation.",
+    facts: "His 'Is this your king?' line became one of the MCU's most quoted moments."
+  },
+  {
+    name: "Vulture",
+    alias: "Adrian Toomes",
+    teams: [],
+    category: "Villain",
+    created: 1963,
+    firstAppearance: "The Amazing Spider-Man #2 (1963)",
+    creators: ["Stan Lee", "Steve Ditko"],
+    actors: ["Michael Keaton"],
+    films: ["Spider-Man: Homecoming (2017)", "Morbius (2022)"],
+    powers: [
+      "Mechanical winged flight harness scavenged from alien tech",
+      "Enhanced strength and durability from his suit",
+      "Skilled engineer and salvager",
+      "Integrated talons and weaponry"
+    ],
+    storyline: "Salvage contractor Adrian Toomes is pushed out of business by Stark " +
+      "Industries, then repurposes recovered Chitauri technology into a flying suit to deal " +
+      "weapons on the black market — becoming Spider-Man's grounded, working-class nemesis.",
+    facts: "In a chilling twist, he turns out to be the father of Peter's date."
+  },
+  {
+    name: "Doctor Octopus",
+    alias: "Otto Octavius",
+    teams: ["Sinister Six"],
+    category: "Villain",
+    created: 1963,
+    firstAppearance: "The Amazing Spider-Man #3 (1963)",
+    creators: ["Stan Lee", "Steve Ditko"],
+    actors: ["Alfred Molina"],
+    films: ["Spider-Man 2 (2004)", "Spider-Man: No Way Home (2021)"],
+    powers: [
+      "Four AI-driven mechanical tentacles fused to his spine",
+      "Superhuman reach, strength and multitasking in combat",
+      "Brilliant nuclear physicist and inventor"
+    ],
+    storyline: "Genius scientist Otto Octavius is bonded to four intelligent robotic arms " +
+      "after an experiment goes wrong, the limbs overriding his mind. As Doctor Octopus he " +
+      "becomes one of Spider-Man's deadliest foes — and, decades later, finds redemption.",
+    facts: "He is a founding member and frequent leader of the Sinister Six."
+  },
+  {
+    name: "Wong",
+    alias: "Wong",
+    teams: ["Masters of the Mystic Arts"],
+    category: "Hero",
+    created: 1963,
+    firstAppearance: "Strange Tales #110 (1963)",
+    creators: ["Stan Lee", "Steve Ditko"],
+    actors: ["Benedict Wong"],
+    films: [
+      "Doctor Strange (2016)", "Avengers: Infinity War (2018)",
+      "Avengers: Endgame (2019)", "Shang-Chi and the Legend of the Ten Rings (2021)",
+      "Spider-Man: No Way Home (2021)", "Doctor Strange in the Multiverse of Madness (2022)"
+    ],
+    powers: [
+      "Master of the mystic arts",
+      "Sling Ring portals and energy constructs",
+      "Keeper of Kamar-Taj's knowledge and relics",
+      "Skilled in mystical combat"
+    ],
+    storyline: "A formidable sorcerer and librarian of Kamar-Taj, Wong becomes the Sorcerer " +
+      "Supreme after the Blip. Steadfast and increasingly central to the MCU, he anchors its " +
+      "magical side and mentors his peers.",
+    facts: "He moonlights as an underground fight-club promoter in Shang-Chi."
+  },
+  {
+    name: "Blade",
+    alias: "Eric Brooks",
+    teams: [],
+    category: "Anti-Hero",
+    created: 1973,
+    firstAppearance: "The Tomb of Dracula #10 (1973)",
+    creators: ["Marv Wolfman", "Gene Colan"],
+    actors: ["Wesley Snipes", "Mahershala Ali"],
+    films: ["Blade (1998)", "Blade II (2002)", "Blade: Trinity (2004)"],
+    powers: [
+      "Half-human, half-vampire 'Daywalker' immune to sunlight",
+      "Superhuman strength, speed, senses and healing",
+      "Master swordsman and martial artist",
+      "Expert vampire hunter with specialized weaponry"
+    ],
+    storyline: "Born as his mother was bitten by a vampire, Eric Brooks gains vampiric " +
+      "powers without the weaknesses. As Blade the Daywalker, he wages a relentless war on " +
+      "the vampire race that took his humanity.",
+    facts: "The 1998 Blade film helped launch the modern Marvel movie boom."
+  },
+  {
+    name: "Ghost Rider",
+    alias: "Johnny Blaze",
+    teams: [],
+    category: "Anti-Hero",
+    created: 1972,
+    firstAppearance: "Marvel Spotlight #5 (1972)",
+    creators: ["Gary Friedrich", "Roy Thomas", "Mike Ploog"],
+    actors: ["Nicolas Cage"],
+    films: ["Ghost Rider (2007)", "Ghost Rider: Spirit of Vengeance (2011)"],
+    powers: [
+      "Transforms into a flaming-skulled Spirit of Vengeance",
+      "Wields hellfire and a chain whip",
+      "The 'Penance Stare' that burns a soul with all the pain it has caused",
+      "Near-invulnerability and a hellfire-powered motorcycle"
+    ],
+    storyline: "Stunt motorcyclist Johnny Blaze sells his soul to save a loved one and is " +
+      "bonded with a demonic Spirit of Vengeance. By night he becomes the Ghost Rider, " +
+      "hunting the wicked and battling the very forces of Hell.",
+    facts: "His Penance Stare makes a victim feel every ounce of pain they've inflicted."
+  },
+  {
+    name: "Jessica Jones",
+    alias: "Jessica Jones",
+    teams: ["Defenders"],
+    category: "Anti-Hero",
+    created: 2001,
+    firstAppearance: "Alias #1 (2001)",
+    creators: ["Brian Michael Bendis", "Michael Gaydos"],
+    actors: ["Krysten Ritter"],
+    films: ["Jessica Jones (TV, 2015-2019)", "The Defenders (TV, 2017)"],
+    powers: [
+      "Superhuman strength and durability",
+      "Limited flight (more of a guided leap)",
+      "Skilled private investigator",
+      "High resilience to injury"
+    ],
+    storyline: "A former would-be superhero left traumatized by the mind-controlling " +
+      "villain Kilgrave, Jessica Jones becomes a hard-drinking private investigator in " +
+      "Hell's Kitchen, using her powers and detective skills to protect others.",
+    facts: "Her series was praised for tackling trauma and abuse head-on."
+  },
+  {
+    name: "Luke Cage",
+    alias: "Carl Lucas",
+    teams: ["Defenders", "Heroes for Hire"],
+    category: "Hero",
+    created: 1972,
+    firstAppearance: "Luke Cage, Hero for Hire #1 (1972)",
+    creators: ["Archie Goodwin", "John Romita Sr.", "George Tuska"],
+    actors: ["Mike Colter"],
+    films: [
+      "Jessica Jones (TV, 2015)", "Luke Cage (TV, 2016-2018)", "The Defenders (TV, 2017)"
+    ],
+    powers: [
+      "Unbreakable, bulletproof skin",
+      "Superhuman strength and durability",
+      "Accelerated healing"
+    ],
+    storyline: "Wrongly imprisoned, Carl Lucas gains impenetrable skin and superhuman " +
+      "strength from a sabotaged experiment. Taking the name Luke Cage, he becomes the " +
+      "bulletproof protector of Harlem.",
+    facts: "He was one of the first Black superheroes to headline his own comic."
+  },
+  {
+    name: "Quicksilver",
+    alias: "Pietro Maximoff",
+    teams: ["Avengers", "Brotherhood of Mutants"],
+    category: "Hero",
+    created: 1964,
+    firstAppearance: "The X-Men #4 (1964)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Aaron Taylor-Johnson", "Evan Peters"],
+    films: [
+      "X-Men: Days of Future Past (2014)", "Avengers: Age of Ultron (2015)",
+      "X-Men: Apocalypse (2016)", "Dark Phoenix (2019)"
+    ],
+    powers: [
+      "Superhuman speed, able to move faster than the eye can follow",
+      "Enhanced reflexes and perception of time",
+      "Can run across water and up walls"
+    ],
+    storyline: "Wanda Maximoff's twin brother, Pietro can move at superhuman speed. In the " +
+      "MCU he dies shielding civilians from Ultron's gunfire; the X-Men films feature a " +
+      "separate, scene-stealing version of the character.",
+    facts: "His slow-motion rescue scenes are fan-favourite set pieces."
+  },
+  {
+    name: "Hank Pym",
+    alias: "Henry Pym",
+    teams: ["Avengers"],
+    category: "Hero",
+    created: 1962,
+    firstAppearance: "Tales to Astonish #27 (1962)",
+    creators: ["Stan Lee", "Larry Lieber", "Jack Kirby"],
+    actors: ["Michael Douglas"],
+    films: [
+      "Ant-Man (2015)", "Ant-Man and the Wasp (2018)",
+      "Ant-Man and the Wasp: Quantumania (2023)"
+    ],
+    powers: [
+      "Inventor of the size-changing Pym Particles",
+      "Brilliant scientist and original Ant-Man",
+      "Pioneer of Quantum Realm research"
+    ],
+    storyline: "The original Ant-Man, brilliant scientist Hank Pym discovered the Pym " +
+      "Particles that allow size manipulation. A founding Avenger in the comics, in the MCU " +
+      "he mentors Scott Lang and races to rescue his wife from the Quantum Realm.",
+    facts: "In the comics he also created the rogue AI Ultron."
+  },
+  {
+    name: "Mantis",
+    alias: "Mantis",
+    teams: ["Guardians of the Galaxy"],
+    category: "Hero",
+    created: 1973,
+    firstAppearance: "The Avengers #112 (1973)",
+    creators: ["Steve Englehart", "Don Heck"],
+    actors: ["Pom Klementieff"],
+    films: [
+      "Guardians of the Galaxy Vol. 2 (2017)", "Avengers: Infinity War (2018)",
+      "Avengers: Endgame (2019)", "Guardians of the Galaxy Vol. 3 (2023)"
+    ],
+    powers: [
+      "Empath — senses and influences the emotions of others by touch",
+      "Can induce sleep or calm with a touch",
+      "Heightened sensitivity to feelings"
+    ],
+    storyline: "An innocent, sheltered empath raised as the Celestial Ego's companion, " +
+      "Mantis joins the Guardians and becomes part of their found family. Her power to read " +
+      "and soothe emotions proves crucial against Thanos.",
+    facts: "She is later revealed to be Star-Lord's half-sister."
+  },
+  {
+    name: "Yondu",
+    alias: "Yondu Udonta",
+    teams: ["Ravagers"],
+    category: "Anti-Hero",
+    created: 1967,
+    firstAppearance: "Marvel Super-Heroes #18 (1967)",
+    creators: ["Arnold Drake", "Gene Colan"],
+    actors: ["Michael Rooker"],
+    films: ["Guardians of the Galaxy (2014)", "Guardians of the Galaxy Vol. 2 (2017)"],
+    powers: [
+      "Controls a Yaka arrow with sonic whistles, steering it through dozens of foes",
+      "Veteran Ravager captain and pilot",
+      "Skilled close-quarters fighter"
+    ],
+    storyline: "Ravager captain Yondu abducts young Peter Quill but raises him as his own " +
+      "in his gruff way. Beneath the bravado he loves Peter like a son, ultimately " +
+      "sacrificing himself to save him in Vol. 2.",
+    facts: "'He may have been your father, boy, but he wasn't your daddy.'"
+  },
+  {
+    name: "Ego",
+    alias: "Ego the Living Planet",
+    teams: [],
+    category: "Villain",
+    created: 1966,
+    firstAppearance: "Thor #132 (1966)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Kurt Russell"],
+    films: ["Guardians of the Galaxy Vol. 2 (2017)"],
+    powers: [
+      "A Celestial whose consciousness inhabits an entire living planet",
+      "Matter manipulation and the cosmic 'Expansion'",
+      "Creates a humanoid avatar and offspring",
+      "Near-godlike power fueled by his planetary core"
+    ],
+    storyline: "A Celestial who grew a planet around himself, Ego seeks to remake the " +
+      "universe in his own image, fathering countless children to harness their power. He " +
+      "is revealed as Peter Quill's father — and the films' true threat.",
+    facts: "He fathered Star-Lord as part of his plan to seed the galaxy."
   }
 ];

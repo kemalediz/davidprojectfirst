@@ -1,8 +1,9 @@
 # Marvelpedia — The Marvel Characters Wiki
 
-A fan-made wiki of iconic Marvel characters, backed by **Firebase**. Users sign
-in (Firebase Authentication), and the character data is stored in and loaded
-from **Cloud Firestore**. For each character it documents:
+A fan-made wiki of iconic Marvel characters, backed by **Firebase**. The
+character data lives in **Cloud Firestore** and is **public to read** — anyone
+can browse the whole roster and full details without an account, just like
+Wikipedia. For each character it documents:
 
 - **When they were created** — year and first comic appearance
 - **Who created them** — writers and artists
@@ -14,6 +15,12 @@ from **Cloud Firestore**. For each character it documents:
 The site has live search (by name, alias, actor, power, film, team or creator)
 and category filters (Hero / Villain / Anti-Hero). Click any character card to
 open a full detail view.
+
+**Sign-in is optional** (Google or email/password, via Firebase Authentication)
+and is only needed for the one user-specific feature: **favourites**. Signed-in
+users can tap the ♥ on any character to save it, and filter to their saved
+characters with the "★ Favourites" chip. Favourites are stored per user in
+Firestore under `users/{uid}`.
 
 It's plain HTML/CSS/JS with no build step — it uses the Firebase **modular SDK
 loaded over the CDN** as ES modules.
@@ -96,8 +103,8 @@ public/
   index.html          # auth gate + wiki shell
   styles.css          # Marvel-themed styling
   firebase-config.js  # Firebase init (fill in your project config)
-  auth.js             # sign-in / sign-up gate (Firebase Auth)
-  app.js              # loads characters from Firestore, search/filter/modal
+  auth.js             # optional sign-in (Google + email), favourites enabler
+  app.js              # public character load from Firestore, search/filter/modal, favourites
   data.js             # starter dataset (used only by the seeder)
   seed.html / seed.js # one-click uploader: data.js → Firestore
 backend.py            # minimal static file server (local dev)
