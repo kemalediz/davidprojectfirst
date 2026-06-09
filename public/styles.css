@@ -182,6 +182,20 @@ body {
   color: #fff;
 }
 
+.chip-count {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chip.active .chip-count {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 /* ---------- Layout ---------- */
 .container {
   max-width: 1180px;

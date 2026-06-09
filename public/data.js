@@ -2213,5 +2213,231 @@ window.MARVEL_CHARACTERS = [
       "vows to kill every god in the universe with the cursed Necrosword. His crusade brings " +
       "him into a tragic confrontation with Thor.",
     facts: "The Necrosword corrupts and amplifies its wielder's vengeance."
+  },
+  {
+    name: "Iceman",
+    alias: "Bobby Drake",
+    teams: ["X-Men"],
+    category: "Hero",
+    created: 1963,
+    firstAppearance: "The X-Men #1 (1963)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Shawn Ashmore"],
+    films: [
+      "X-Men (2000)", "X2 (2003)", "X-Men: The Last Stand (2006)",
+      "X-Men: Days of Future Past (2014)"
+    ],
+    powers: [
+      "Generates and controls ice and cold",
+      "Transforms his body into organic ice",
+      "Forms ice slides, walls and projectiles",
+      "Can flash-freeze moisture from the air"
+    ],
+    storyline: "One of the original X-Men, Bobby Drake can freeze anything around him and " +
+      "turn his own body to ice. The youthful, wisecracking Iceman matures into one of the " +
+      "most powerful members of the team.",
+    facts: "At full power he's considered one of the strongest mutants alive."
+  },
+  {
+    name: "Kitty Pryde",
+    alias: "Katherine Pryde",
+    teams: ["X-Men"],
+    category: "Hero",
+    created: 1980,
+    firstAppearance: "The Uncanny X-Men #129 (1980)",
+    creators: ["Chris Claremont", "John Byrne"],
+    actors: ["Ellen Page"],
+    films: [
+      "X-Men: The Last Stand (2006)", "X-Men: Days of Future Past (2014)"
+    ],
+    powers: [
+      "Phases through solid matter ('intangibility')",
+      "Can disrupt electronics by phasing through them",
+      "Walks on air by phasing through it",
+      "Skilled in martial arts and computing"
+    ],
+    storyline: "The youngest X-Man when she joined, Kitty Pryde can phase through solid " +
+      "objects. In Days of Future Past her phasing powers are key to sending consciousness " +
+      "back through time to rewrite a dark future.",
+    facts: "She projects others' minds into the past in Days of Future Past."
+  },
+  {
+    name: "Bishop",
+    alias: "Lucas Bishop",
+    teams: ["X-Men"],
+    category: "Hero",
+    created: 1991,
+    firstAppearance: "The Uncanny X-Men #282 (1991)",
+    creators: ["Whilce Portacio", "John Byrne"],
+    actors: ["Omar Sy"],
+    films: ["X-Men: Days of Future Past (2014)"],
+    powers: [
+      "Absorbs energy and redirects it as concussive blasts",
+      "Time-traveling soldier from a dystopian future",
+      "Enhanced strength and durability",
+      "Skilled marksman and tactician"
+    ],
+    storyline: "A mutant soldier from a grim future, Bishop can absorb almost any energy " +
+      "and fire it back. In Days of Future Past he fights a desperate guerrilla war against " +
+      "the mutant-hunting Sentinels.",
+    facts: "The more he's hit with energy, the harder he can hit back."
+  },
+  {
+    name: "Maria Hill",
+    alias: "Maria Hill",
+    teams: ["S.H.I.E.L.D."],
+    category: "Hero",
+    created: 2007,
+    firstAppearance: "Secret War #2 (2007)",
+    creators: ["Brian Michael Bendis", "Gabriele Dell'Otto"],
+    actors: ["Cobie Smulders"],
+    films: [
+      "The Avengers (2012)", "Captain America: The Winter Soldier (2014)",
+      "Avengers: Age of Ultron (2015)", "Avengers: Endgame (2019)",
+      "Spider-Man: Far From Home (2019)", "Secret Invasion (TV, 2023)"
+    ],
+    powers: [
+      "High-ranking S.H.I.E.L.D. officer and Nick Fury's right hand",
+      "Elite espionage and combat training",
+      "Sharp tactician and crisis manager"
+    ],
+    storyline: "A senior S.H.I.E.L.D. agent and Nick Fury's most trusted deputy, Maria Hill " +
+      "coordinates the Avengers' operations from the shadows and remains a steady hand in " +
+      "every global crisis.",
+    facts: "She often serves as the Avengers' behind-the-scenes mission control."
+  },
+  {
+    name: "Korg",
+    alias: "Korg",
+    teams: ["Revengers"],
+    category: "Hero",
+    created: 2006,
+    firstAppearance: "The Incredible Hulk #93 (2006)",
+    creators: ["Greg Pak", "Carlo Pagulayan"],
+    actors: ["Taika Waititi"],
+    films: [
+      "Thor: Ragnarok (2017)", "Avengers: Endgame (2019)", "Thor: Love and Thunder (2022)"
+    ],
+    powers: [
+      "Kronan warrior made of living rock",
+      "Immense strength and durability",
+      "Gentle, easygoing temperament despite his size"
+    ],
+    storyline: "A rock-bodied Kronan gladiator, Korg befriends Thor on Sakaar and helps lead " +
+      "a rebellion against the Grandmaster. His deadpan kindness makes him a fan-favourite " +
+      "companion across Thor's later adventures.",
+    facts: "He's made of rocks, so he can't be killed conventionally — as he cheerfully notes."
+  },
+  {
+    name: "Odin",
+    alias: "Odin Borson",
+    teams: [],
+    category: "Hero",
+    created: 1962,
+    firstAppearance: "Journey into Mystery #85 (1962)",
+    creators: ["Stan Lee", "Larry Lieber", "Jack Kirby"],
+    actors: ["Anthony Hopkins"],
+    films: [
+      "Thor (2011)", "Thor: The Dark World (2013)", "Thor: Ragnarok (2017)"
+    ],
+    powers: [
+      "Wields the immense cosmic might of the Odinforce",
+      "Vast Asgardian strength, durability and longevity",
+      "Powerful sorcery and energy manipulation",
+      "Ruler and protector of the Nine Realms"
+    ],
+    storyline: "The Allfather and king of Asgard, Odin rules the Nine Realms and is father " +
+      "to Thor and Loki. His past conquests and buried secrets — including his firstborn " +
+      "Hela — return to haunt his sons after his death.",
+    facts: "His magic kept his daughter Hela imprisoned for ages."
+  },
+  {
+    name: "Mighty Thor",
+    alias: "Jane Foster",
+    teams: ["Avengers"],
+    category: "Hero",
+    created: 1962,
+    firstAppearance: "Journey into Mystery #84 (1962)",
+    creators: ["Stan Lee", "Larry Lieber", "Jack Kirby"],
+    actors: ["Natalie Portman"],
+    films: [
+      "Thor (2011)", "Thor: The Dark World (2013)", "Avengers: Endgame (2019)",
+      "Thor: Love and Thunder (2022)"
+    ],
+    powers: [
+      "Wields the reforged Mjolnir as the Mighty Thor",
+      "Asgardian-level strength, durability and lightning control while transformed",
+      "Brilliant astrophysicist as Jane Foster",
+      "Flight and storm manipulation"
+    ],
+    storyline: "Astrophysicist Jane Foster, once Thor's great love, becomes worthy of the " +
+      "reforged Mjolnir and transforms into the Mighty Thor — even as the hammer's power " +
+      "takes a devastating toll on her body while she battles cancer.",
+    facts: "Each transformation into the Mighty Thor worsens Jane's illness."
+  },
+  {
+    name: "Peggy Carter",
+    alias: "Margaret 'Peggy' Carter",
+    teams: ["S.H.I.E.L.D.", "SSR"],
+    category: "Hero",
+    created: 1966,
+    firstAppearance: "Tales of Suspense #77 (1966)",
+    creators: ["Stan Lee", "Jack Kirby"],
+    actors: ["Hayley Atwell"],
+    films: [
+      "Captain America: The First Avenger (2011)",
+      "Captain America: The Winter Soldier (2014)", "Ant-Man (2015)",
+      "Agent Carter (TV, 2015-2016)", "Avengers: Endgame (2019)"
+    ],
+    powers: [
+      "Elite combat, espionage and marksmanship skills",
+      "Brilliant strategist and intelligence officer",
+      "Co-founder of S.H.I.E.L.D.",
+      "Unshakable courage and conviction"
+    ],
+    storyline: "A fearless SSR officer in WWII and Steve Rogers's great love, Peggy Carter " +
+      "goes on to co-found S.H.I.E.L.D. In Endgame, Steve returns through time to finally " +
+      "live out the life and dance he promised her.",
+    facts: "'I'm not looking for forgiveness, and I'm way past asking permission.'"
+  },
+  {
+    name: "Thena",
+    alias: "Thena",
+    teams: ["Eternals"],
+    category: "Hero",
+    created: 1976,
+    firstAppearance: "The Eternals #5 (1976)",
+    creators: ["Jack Kirby"],
+    actors: ["Angelina Jolie"],
+    films: ["Eternals (2021)"],
+    powers: [
+      "Forms weapons of pure cosmic energy at will",
+      "Master warrior and tactician among the Eternals",
+      "Near-immortality, strength and durability"
+    ],
+    storyline: "The fierce warrior of the Eternals, Thena can conjure any weapon from cosmic " +
+      "energy. She struggles with 'Mahd Wy'ry,' a condition that blurs her memories across " +
+      "millennia, yet remains a devastating protector of humanity.",
+    facts: "Her affliction causes flashes of memories from her thousands of years of life."
+  },
+  {
+    name: "Druig",
+    alias: "Druig",
+    teams: ["Eternals"],
+    category: "Anti-Hero",
+    created: 1977,
+    firstAppearance: "The Eternals #11 (1977)",
+    creators: ["Jack Kirby"],
+    actors: ["Barry Keoghan"],
+    films: ["Eternals (2021)"],
+    powers: [
+      "Mind control over the thoughts and actions of others",
+      "Near-immortality as an Eternal",
+      "Cosmic-energy manipulation and durability"
+    ],
+    storyline: "An aloof, cynical Eternal with the power to control minds, Druig grows " +
+      "disillusioned watching humanity's endless wars while forbidden to intervene. He " +
+      "withdraws for centuries before rejoining his family to face the Emergence.",
+    facts: "He once used his powers to halt a war, defying the Eternals' rules."
   }
 ];

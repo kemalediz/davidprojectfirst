@@ -97,13 +97,15 @@ function compareBy(mode) {
 
 function buildFilters() {
   const categories = ["All", ...Array.from(new Set(characters.map((c) => c.category)))];
+  const countFor = (cat) =>
+    cat === "All" ? characters.length : characters.filter((c) => c.category === cat).length;
   const favChip =
     `<button class="chip chip-fav${favoritesOnly ? " active" : ""}" data-fav="1">` +
     `★ Favourites${currentUser ? ` (${favorites.size})` : ""}</button>`;
   const catChips = categories
     .map(
       (cat) =>
-        `<button class="chip${cat === activeCategory && !favoritesOnly ? " active" : ""}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`
+        `<button class="chip${cat === activeCategory && !favoritesOnly ? " active" : ""}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)} <span class="chip-count">${countFor(cat)}</span></button>`
     )
     .join("");
   els.filters.innerHTML = favChip + catChips;
