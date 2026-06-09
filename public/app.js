@@ -1,6 +1,14 @@
-// Marvelpedia front-end logic — pure vanilla JS, no backend or external services.
+// Marvelpedia wiki UI — loads characters from Cloud Firestore and renders a
+// searchable, filterable grid with a detail modal. Exposed as initWiki(), which
+// auth.js calls once a user is signed in.
 
-const characters = (window.MARVEL_CHARACTERS || []).slice();
+import { db } from "./firebase-config.js";
+import {
+  collection,
+  getDocs,
+  query as fsQuery,
+  orderBy,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const els = {
   grid: document.getElementById("grid"),
@@ -8,10 +16,12 @@ const els = {
   search: document.getElementById("search"),
   count: document.getElementById("result-count"),
   empty: document.getElementById("empty"),
+  dataMessage: document.getElementById("data-message"),
   modal: document.getElementById("modal"),
   modalBody: document.getElementById("modal-body"),
 };
 
+let characters = [];
 let activeCategory = "All";
 let query = "";
 
@@ -34,7 +44,6 @@ function initials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Build a searchable haystack from a character's fields.
 function haystack(c) {
   return [
     c.name, c.alias, c.category, c.firstAppearance,
@@ -77,7 +86,7 @@ function buildFilters() {
 // ---- Cards / grid ----------------------------------------------------------
 
 function cardHtml(c, index) {
-  const teams = (c.teams && c.teams.length ? c.teams[0] : "Unaffiliated");
+  const teams = c.teams && c.teams.length ? c.teams[0] : "Unaffiliated";
   return `
     <article class="card" data-index="${index}" tabindex="0" role="button" aria-label="View ${escapeHtml(c.name)}">
       <span class="card-year">${escapeHtml(c.created)}</span>
@@ -98,8 +107,10 @@ function render() {
   });
 
   els.grid.innerHTML = visible.map(({ c, i }) => cardHtml(c, i)).join("");
-  els.empty.hidden = visible.length !== 0;
-  els.count.textContent = `${visible.length} of ${characters.length} characters`;
+  els.empty.hidden = visible.length !== 0 || characters.length === 0;
+  els.count.textContent = characters.length
+    ? `${visible.length} of ${characters.length} characters`
+    : "";
 
   els.grid.querySelectorAll(".card").forEach((card) => {
     const open = () => openModal(Number(card.dataset.index));
@@ -205,9 +216,48 @@ els.search.addEventListener("input", (e) => {
   render();
 });
 
-// ---- Init ------------------------------------------------------------------
+// ---- Data loading ----------------------------------------------------------
 
-// Keep the roster alphabetical for predictable browsing.
-characters.sort((a, b) => a.name.localeCompare(b.name));
-buildFilters();
-render();
+function showDataMessage(html) {
+  els.dataMessage.innerHTML = html;
+  els.dataMessage.hidden = false;
+}
+
+// Called by auth.js once the user is authenticated.
+export async function initWiki() {
+  els.count.textContent = "Loading characters…";
+  els.dataMessage.hidden = true;
+  try {
+    const snap = await getDocs(fsQuery(collection(db, "characters"), orderBy("name")));
+    characters = snap.docs.map((d) => d.data());
+  } catch (err) {
+    // Most commonly: no "name" index yet, or rules deny reads. Fall back to an
+    // unordered fetch, then sort client-side.
+    try {
+      const snap = await getDocs(collection(db, "characters"));
+      characters = snap.docs.map((d) => d.data());
+      characters.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    } catch (err2) {
+      els.count.textContent = "";
+      showDataMessage(
+        `<strong>Couldn't load characters from Firestore.</strong><br />` +
+          `Check your Firestore security rules allow signed-in reads of the ` +
+          `<code>characters</code> collection. (${escapeHtml(err2.code || err2.message)})`
+      );
+      return;
+    }
+  }
+
+  if (characters.length === 0) {
+    els.count.textContent = "";
+    showDataMessage(
+      `<strong>No characters in Firestore yet.</strong><br />` +
+        `Open <a href="seed.html">seed.html</a> while signed in to upload the ` +
+        `starter dataset, then return here.`
+    );
+    return;
+  }
+
+  buildFilters();
+  render();
+}

@@ -8,54 +8,105 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-inner">
-      <a class="brand" href="#" aria-label="Marvelpedia home">
+  <!-- ============ Auth gate ============ -->
+  <section id="auth-view" class="auth-view" hidden>
+    <div class="auth-card">
+      <div class="brand auth-brand">
         <span class="brand-mark">MARVEL</span><span class="brand-sub">pedia</span>
-      </a>
-      <p class="tagline">The wiki of Marvel characters &mdash; origins, films, actors, powers &amp; stories</p>
-      <div class="search-wrap">
-        <input
-          id="search"
-          type="search"
-          placeholder="Search characters, actors, powers, films…"
-          aria-label="Search characters"
-          autocomplete="off"
-        />
       </div>
+      <p class="auth-tagline">Sign in to explore the Marvel characters wiki</p>
+
+      <div class="tabs">
+        <button id="tab-signin" class="tab active" type="button">Sign In</button>
+        <button id="tab-signup" class="tab" type="button">Sign Up</button>
+      </div>
+
+      <form id="signin-form" class="form active">
+        <label>Email
+          <input name="email" type="email" autocomplete="email" required />
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" required minlength="6" />
+        </label>
+        <button type="submit">Sign In</button>
+      </form>
+
+      <form id="signup-form" class="form">
+        <label>Email
+          <input name="email" type="email" autocomplete="email" required />
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="new-password" required minlength="6" />
+        </label>
+        <button type="submit">Create Account</button>
+      </form>
+
+      <div id="auth-message" class="message"></div>
     </div>
-  </header>
+  </section>
 
-  <nav class="filters" id="filters" aria-label="Filter by category">
-    <!-- Filter chips injected by app.js -->
-  </nav>
+  <!-- ============ Loading splash ============ -->
+  <div id="loading-view" class="loading-view">
+    <div class="brand">
+      <span class="brand-mark">MARVEL</span><span class="brand-sub">pedia</span>
+    </div>
+    <p class="loading-text">Loading…</p>
+  </div>
 
-  <main class="container">
-    <p id="result-count" class="result-count" aria-live="polite"></p>
-    <section id="grid" class="grid" aria-label="Character list">
-      <!-- Cards injected by app.js -->
-    </section>
-    <p id="empty" class="empty" hidden>No characters match your search.</p>
-  </main>
+  <!-- ============ Wiki app ============ -->
+  <div id="app-view" hidden>
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="header-top">
+          <a class="brand" href="#" aria-label="Marvelpedia home">
+            <span class="brand-mark">MARVEL</span><span class="brand-sub">pedia</span>
+          </a>
+          <div class="user-box">
+            <span id="user-email" class="user-email"></span>
+            <button id="signout-btn" type="button" class="signout-btn">Sign out</button>
+          </div>
+        </div>
+        <p class="tagline">The wiki of Marvel characters &mdash; origins, films, actors, powers &amp; stories</p>
+        <div class="search-wrap">
+          <input
+            id="search"
+            type="search"
+            placeholder="Search characters, actors, powers, films…"
+            aria-label="Search characters"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+    </header>
 
-  <footer class="site-footer">
-    <p>
-      Marvelpedia is a fan-made educational reference. Marvel, all character names and
-      related indicia are trademarks of Marvel Characters, Inc. Not affiliated with or
-      endorsed by Marvel or The Walt Disney Company.
-    </p>
-  </footer>
+    <nav class="filters" id="filters" aria-label="Filter by category"></nav>
 
-  <!-- Character detail modal -->
+    <main class="container">
+      <p id="result-count" class="result-count" aria-live="polite"></p>
+      <section id="grid" class="grid" aria-label="Character list"></section>
+      <p id="empty" class="empty" hidden>No characters match your search.</p>
+      <div id="data-message" class="data-message" hidden></div>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Marvelpedia is a fan-made educational reference. Marvel, all character names and
+        related indicia are trademarks of Marvel Characters, Inc. Not affiliated with or
+        endorsed by Marvel or The Walt Disney Company.
+      </p>
+    </footer>
+  </div>
+
+  <!-- ============ Character detail modal ============ -->
   <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-backdrop" data-close></div>
     <div class="modal-panel" role="document">
       <button class="modal-close" data-close aria-label="Close">&times;</button>
-      <div id="modal-body"><!-- Detail injected by app.js --></div>
+      <div id="modal-body"></div>
     </div>
   </div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <!-- auth.js drives the gate and, on sign-in, calls initWiki() from app.js -->
+  <script type="module" src="auth.js"></script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Firestore security rules for Marvelpedia.
+// Any signed-in user can read the wiki and run the seeder. Tighten the write
+// rule (e.g. to a specific admin uid) before any real-world use.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /characters/{characterId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}

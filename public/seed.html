@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marvelpedia — Seed Firestore</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section class="auth-view" hidden style="display:grid">
+    <div class="auth-card">
+      <div class="brand auth-brand">
+        <span class="brand-mark">MARVEL</span><span class="brand-sub">pedia</span>
+      </div>
+      <p class="auth-tagline">Seed the <code>characters</code> collection in Firestore</p>
+
+      <p id="seed-status" class="message">Checking sign-in…</p>
+
+      <button id="seed-btn" type="submit" disabled>Upload starter dataset</button>
+
+      <p class="auth-tagline" style="margin-top:18px">
+        You must be signed in. If you aren't, open
+        <a href="index.html">the wiki</a> and sign in first.
+        After seeding, return to <a href="index.html">the wiki</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- The dataset is exposed as a global by data.js, then uploaded by seed.js -->
+  <script src="data.js"></script>
+  <script type="module" src="seed.js"></script>
+</body>
+</html>
