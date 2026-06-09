@@ -24,7 +24,8 @@ loaded over the CDN** as ES modules.
 
 1. In the [Firebase console](https://console.firebase.google.com/), create a
    project and add a **Web app**. Copy the config object.
-2. **Authentication** → Sign-in method → enable **Email/Password**.
+2. **Authentication** → Sign-in method → enable **Email/Password** and
+   **Google** (Google powers the "Continue with Google" button).
 3. **Firestore Database** → create a database.
 4. Apply security rules. The included `firestore.rules` lets any signed-in user
    read and seed the data:
@@ -66,6 +67,28 @@ sign in, then open **`/seed.html`** and click **Upload starter dataset** — it
 uploads the bundled roster from `public/data.js` into Firestore. Return to the
 wiki and the characters appear.
 
+## Deploy to Firebase Hosting
+
+The repo includes `firebase.json` (Hosting + Firestore rules config) and
+`.firebaserc`. To go live:
+
+```bash
+npm install -g firebase-tools   # one time
+firebase login                  # one time
+
+# Point .firebaserc at your project (replace YOUR_PROJECT_ID), or run:
+firebase use --add
+
+firebase deploy                 # deploys public/ and firestore.rules
+# or deploy selectively:
+firebase deploy --only hosting
+firebase deploy --only firestore:rules
+```
+
+Hosting serves the `public/` directory. After deploying, your live domain is
+added automatically to the authorized domains for sign-in; if you use a custom
+domain, add it under **Authentication → Settings → Authorized domains**.
+
 ## Project structure
 
 ```
@@ -77,8 +100,10 @@ public/
   app.js              # loads characters from Firestore, search/filter/modal
   data.js             # starter dataset (used only by the seeder)
   seed.html / seed.js # one-click uploader: data.js → Firestore
-backend.py            # minimal static file server
+backend.py            # minimal static file server (local dev)
 firestore.rules       # Firestore security rules
+firebase.json         # Firebase Hosting + Firestore config
+.firebaserc           # default Firebase project (set YOUR_PROJECT_ID)
 ```
 
 ## Adding more characters

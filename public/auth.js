@@ -7,6 +7,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { initWiki } from "./app.js";
@@ -28,6 +30,9 @@ const forms = {
 const messageEl = document.getElementById("auth-message");
 const userEmailEl = document.getElementById("user-email");
 const signoutBtn = document.getElementById("signout-btn");
+const googleBtn = document.getElementById("google-btn");
+
+const googleProvider = new GoogleAuthProvider();
 
 let wikiLoaded = false;
 
@@ -54,9 +59,14 @@ function describeError(err) {
     "auth/too-many-requests": "Too many attempts. Please try again later.",
     "auth/network-request-failed": "Network error. Check your connection.",
     "auth/operation-not-allowed":
-      "Email/password sign-in is disabled. Enable it in the Firebase console → Authentication → Sign-in method.",
+      "This sign-in method is disabled. Enable it in the Firebase console → Authentication → Sign-in method.",
+    "auth/popup-closed-by-user": "Sign-in popup closed before completing.",
+    "auth/cancelled-popup-request": "",
+    "auth/popup-blocked": "Your browser blocked the sign-in popup. Allow popups and try again.",
+    "auth/unauthorized-domain":
+      "This domain isn't authorized for sign-in. Add it in the Firebase console → Authentication → Settings → Authorized domains.",
   };
-  return map[code] || (err && err.message) || "Something went wrong.";
+  return map[code] != null ? map[code] : (err && err.message) || "Something went wrong.";
 }
 
 function setMessage(text, kind) {
@@ -103,6 +113,18 @@ forms.signup.addEventListener("submit", (e) => {
   handleAuth(createUserWithEmailAndPassword, e.target, "Creating account…");
 });
 
+googleBtn.addEventListener("click", async () => {
+  setMessage("Opening Google sign-in…", "");
+  try {
+    await signInWithPopup(auth, googleProvider);
+    // onAuthStateChanged takes over from here.
+  } catch (err) {
+    const text = describeError(err);
+    if (text) setMessage(text, "error");
+    else setMessage("", "");
+  }
+});
+
 signoutBtn.addEventListener("click", () => signOut(auth));
 
 // ---- Auth state → which view to show ---------------------------------------
@@ -114,10 +136,11 @@ if (!isConfigured) {
     "Firebase isn't configured yet. Add your project config in public/firebase-config.js (see README).",
     "error"
   );
-  // Disable the forms until configured.
+  // Disable the forms and Google button until configured.
   [forms.signin, forms.signup].forEach((f) =>
     f.querySelectorAll("input, button").forEach((el) => (el.disabled = true))
   );
+  googleBtn.disabled = true;
 } else {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
