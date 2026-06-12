@@ -4,9 +4,25 @@ Handoff document for continuing this project in a new session (e.g. from a local
 laptop checkout). Captures what was built, how it works, how to run/deploy it,
 known limitations, and next steps.
 
-- **Repo:** `kemalediz/davidprojectfirst`
+- **Project name:** `marvelpedia` (see `package.json`)
+- **Repo:** `kemalediz/davidprojectfirst` — pending rename to `marvelpedia`
+  (see "Renaming the repo / moving to Cressoft" below)
+- **Default branch:** `main` (the wiki work was merged via PR #1)
 - **Working branch:** `claude/marvel-characters-wiki-06lwi7`
-- **Last known good commit:** see `git log` (most recent on the branch)
+
+## Renaming the repo / moving to Cressoft
+
+The codebase is named `marvelpedia` (`package.json`). The GitHub **repository**
+is still `davidprojectfirst`; renaming a repo or transferring it to an org can't
+be done through the automation tooling and must be done from the GitHub UI/CLI:
+
+- **Rename repo** → GitHub repo → Settings → "Rename" → `marvelpedia`. GitHub
+  auto-redirects the old URLs, but update your local remote afterwards:
+  `git remote set-url origin https://github.com/<owner>/marvelpedia.git`
+- **Move under a Cressoft GitHub org** → Settings → "Transfer ownership" →
+  enter the `Cressoft` org (you must be an org owner/admin).
+- **Or, just a local folder** → clone into your Cressoft projects folder:
+  `git clone <url> ~/Projects/Cressoft/marvelpedia`
 
 ## How to get this branch locally
 

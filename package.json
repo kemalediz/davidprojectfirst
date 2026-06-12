@@ -1,0 +1,12 @@
+{
+  "name": "marvelpedia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marvelpedia — a public, Wikipedia-style wiki of Marvel characters, with optional Firebase auth and per-user favourites.",
+  "keywords": ["marvel", "wiki", "firebase", "firestore"],
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "python3 backend.py",
+    "serve": "python3 backend.py"
+  }
+}
