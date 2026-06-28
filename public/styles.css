@@ -1348,6 +1348,57 @@ body.mg-active .site-footer { display: none; }
   to { opacity: 1; transform: translateX(0); }
 }
 
+/* ---- Aiming reticle (crosshair) ---- */
+/* Marks where attacks are aimed. Centred in the Play view, never intercepts
+   pointer events (the .mg-hud parent is pointer-events:none). Shown only during
+   live play — hidden on the select overlay and while paused (toggled in JS). */
+.mg-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 42px;
+  height: 42px;
+  margin: -21px 0 0 -21px;
+  pointer-events: none;
+  z-index: 6;
+}
+.mg-crosshair[hidden] { display: none; }
+.mg-cross-ring {
+  position: absolute;
+  inset: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.65), inset 0 0 4px rgba(0, 0, 0, 0.4);
+}
+.mg-cross-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  background: var(--marvel-red);
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.85);
+}
+.mg-cross-tick {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+}
+.mg-cross-t,
+.mg-cross-b { width: 2px; height: 7px; left: 50%; margin-left: -1px; }
+.mg-cross-l,
+.mg-cross-r { height: 2px; width: 7px; top: 50%; margin-top: -1px; }
+.mg-cross-t { top: 0; }
+.mg-cross-b { bottom: 0; }
+.mg-cross-l { left: 0; }
+.mg-cross-r { right: 0; }
+/* While the pointer is locked for mouse-look, hide the OS cursor everywhere
+   (native lock already hides it; this also covers the HUD layer). */
+body.mg-pointer-locked,
+body.mg-pointer-locked .mg-canvas-wrap canvas { cursor: none; }
+
 .mg-hint {
   position: absolute;
   bottom: 12px;
