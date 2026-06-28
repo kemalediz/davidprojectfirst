@@ -197,6 +197,63 @@ test('crosshair shows, clicking the canvas requests pointer lock, and mouse-look
   expect(errors).toEqual([]);
 });
 
+test('Spider-Man web-pull: holding Space attaches a web and zips the player toward the anchor', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/');
+  await page.click('.nav-tab[data-view="game"]');
+  await page.click('.mg-hero-card[data-hero-id="spider-man"]');
+  await page.waitForFunction(
+    () => window.MarvelGame && window.MarvelGame.getState().started === true,
+    null,
+    { timeout: 20_000 }
+  );
+
+  // Not swinging before any input.
+  const idle = await page.evaluate(() => window.MarvelGame.getState());
+  expect(idle.swinging).toBe(false);
+  expect(idle.webAnchor).toBe(null);
+
+  // Focus the canvas so key events reach the game's window listeners.
+  await page.locator('#view-game').click({ position: { x: 30, y: 30 } }).catch(() => {});
+
+  // Hold Space: the render layer raycasts the crosshair, hands core an anchor,
+  // and core attaches state.swing — so getState().swinging flips true with a
+  // non-null webAnchor.
+  await page.keyboard.down('Space');
+  await page.waitForFunction(
+    () => {
+      const s = window.MarvelGame.getState();
+      return s.swinging === true && s.webAnchor != null;
+    },
+    null,
+    { timeout: 5_000 }
+  );
+
+  // Capture the (fixed) anchor and starting distance, then let the pull run.
+  const start = await page.evaluate(() => window.MarvelGame.getState());
+  expect(start.swinging).toBe(true);
+  expect(start.webAnchor).not.toBe(null);
+  const anchor = start.webAnchor;
+  const distTo = (p) => Math.hypot(p.x - anchor.x, p.y - anchor.y, p.z - anchor.z);
+  const dStart = distTo(start.playerPos);
+
+  await page.waitForTimeout(500);
+  const later = await page.evaluate(() => window.MarvelGame.getState());
+  await page.keyboard.up('Space');
+
+  // The player must have moved toward the fixed anchor (distance shrank).
+  const dLater = distTo(later.playerPos);
+  expect(dLater).toBeLessThan(dStart);
+
+  // Releasing Space clears the web target.
+  await page.waitForFunction(() => window.MarvelGame.getState().webAnchor === null, null, {
+    timeout: 5_000,
+  });
+  expect(await page.evaluate(() => window.MarvelGame.getState().swinging)).toBe(false);
+
+  expect(errors).toEqual([]);
+});
+
 test('switching nav tabs pauses and resumes the loop without errors', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/');

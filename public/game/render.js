@@ -41,6 +41,10 @@ const PROJECTILE_SPEED = 130;
 const PROJECTILE_LIFE = 1.3;
 const PROJECTILE_HIT_R = 9;
 const SCORE = { defeat: 100, robbery: 250, rescue: 75, collect: 50 };
+// Spider-Man web-pull: furthest a web can reach. Beyond this the crosshair
+// raycast falls back to a point along the aim ray (biased upward) so there's
+// always something to zip toward.
+const MAX_WEB_LEN = 140;
 
 // Mouse-look: how much a pixel of pointer movement turns the camera, and the
 // (subtle) pitch clamp so the third-person follow never flips upside down.
@@ -91,6 +95,16 @@ let curRegionKey = null;
 const down = new Set();
 const pressed = new Set();
 let clickAttackQueued = false;
+
+// Spider-Man web-pull aim. `webAnchor` is the fixed world point the player is
+// zipping toward while Space is held (computed once per press, cleared on
+// release); it's fed to core.stepHero as input.webAnchor. The Raycaster +
+// vectors are allocated ONCE and reused every press so aiming never leaks.
+let webAnchor = null;
+const _aimRaycaster = new THREE.Raycaster();
+const _ndcCenter = new THREE.Vector2(0, 0);
+const _anchorVec = new THREE.Vector3();
+const _aimMeshes = [];
 
 // shared geometry / materials (created once, never disposed). Everything here is
 // referenced by many chunks/entities and lives for the whole session — per-chunk
@@ -1016,7 +1030,10 @@ function buildPlayer() {
   // web line for swingers (Spider-Man)
   const webGeo = new THREE.BufferGeometry();
   webGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
-  const web = new THREE.Line(webGeo, new THREE.LineBasicMaterial({ color: 0xffffff }));
+  const web = new THREE.Line(
+    webGeo,
+    new THREE.LineBasicMaterial({ color: 0xf2f4ff, transparent: true, opacity: 0.9 })
+  );
   web.visible = false;
   scene.add(web);
 
@@ -1268,6 +1285,7 @@ function loadChunk(cx, cz) {
   if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
   group.add(inst);
   rec.disposables.push(inst);
+  rec.buildingMesh = inst; // raycast target for Spider-Man's web-pull aim
 
   // rooftop detail + street props (instanced, shared geo/mats -> leak-free).
   addChunkDetail(group, rec, data, cx, cz);
@@ -1321,6 +1339,49 @@ function gatherEntities(types) {
 // ---------------------------------------------------------------------------
 // Gameplay
 // ---------------------------------------------------------------------------
+// Spider-Man's web target. Fire a ray from the camera through screen-centre
+// (the crosshair, NDC 0,0 — so it respects camYaw/camPitch) and hit-test the
+// loaded building InstancedMeshes. If a building is within reach the anchor is
+// that exact hit point; otherwise we web to a point along the aim ray at max
+// length, biased upward so it reads as zipping to a high point. Returns a plain
+// {x,y,z} (never aliases a THREE object). Reuses a single Raycaster + vectors —
+// no per-call allocation.
+function computeWebAnchor() {
+  if (!camera) return null;
+  _aimRaycaster.setFromCamera(_ndcCenter, camera);
+  _aimRaycaster.far = MAX_WEB_LEN;
+  _aimMeshes.length = 0;
+  for (const rec of chunks.values()) {
+    if (rec.buildingMesh) _aimMeshes.push(rec.buildingMesh);
+  }
+  const hits = _aimRaycaster.intersectObjects(_aimMeshes, false);
+  _aimMeshes.length = 0;
+  if (hits.length && hits[0].distance <= MAX_WEB_LEN) {
+    const p = hits[0].point;
+    return { x: p.x, y: p.y, z: p.z };
+  }
+  // Nothing solid in range: anchor a point along the aim ray at max length,
+  // nudged upward so aiming forward/up always gives a satisfying zip target.
+  const ray = _aimRaycaster.ray;
+  _anchorVec.copy(ray.direction).multiplyScalar(MAX_WEB_LEN).add(ray.origin);
+  _anchorVec.y += 24;
+  if (_anchorVec.y < 6) _anchorVec.y = 6;
+  return { x: _anchorVec.x, y: _anchorVec.y, z: _anchorVec.z };
+}
+
+// Update Spider-Man's web target for this frame: compute a fresh anchor on the
+// Space press, keep it while Space is held (so core keeps pulling to that fixed
+// point), and clear it on release. Only swing heroes get an anchor — for
+// everyone else webAnchor stays null and Space keeps its jump/fly/hop meaning.
+function updateWebAim() {
+  if (hero && hero.movement === 'swing') {
+    if (pressed.has('Space')) webAnchor = computeWebAnchor();
+    else if (!down.has('Space')) webAnchor = null;
+  } else {
+    webAnchor = null;
+  }
+}
+
 function buildInput() {
   const space = down.has('Space');
   return {
@@ -1333,6 +1394,7 @@ function buildInput() {
     actionPressed: pressed.has('Space'),
     up: space, // fly ascend
     down: down.has('ShiftLeft') || down.has('ShiftRight'),
+    webAnchor, // Spider-Man only; null for other heroes
   };
 }
 
@@ -1703,7 +1765,9 @@ function update(dt) {
   if (down.has('ArrowLeft')) camYaw += rot;
   if (down.has('ArrowRight')) camYaw -= rot;
 
-  // hero physics
+  // hero physics — resolve Spider-Man's web target first (uses the crosshair
+  // aim from the camera the player saw last frame), then step.
+  updateWebAim();
   core.stepHero(hero, player.state, buildInput(), dt);
   const ps = player.state.pos;
   player.group.position.set(ps.x, ps.y, ps.z);
@@ -1891,6 +1955,7 @@ function startGame(heroId) {
   curRegionKey = null;
   camYaw = 0;
   camPitch = 0;
+  webAnchor = null;
   player = buildPlayer();
   player.attackCd = 0;
   els.heroEmoji.textContent = hero.emoji;
@@ -1932,6 +1997,11 @@ function onView(view) {
 }
 
 function getState() {
+  const swing = player && player.state && player.state.swing;
+  // Prefer the live attached anchor; while Space is still held but the web has
+  // auto-detached (within ~2 units), fall back to the aim anchor we're feeding
+  // core so tests/HUD still see the target.
+  const anchor = swing ? swing.anchor : webAnchor;
   return {
     ready,
     started,
@@ -1941,6 +2011,8 @@ function getState() {
     camYaw,
     chunksLoaded: chunks.size,
     playerPos: player ? { x: player.state.pos.x, y: player.state.pos.y, z: player.state.pos.z } : { x: 0, y: 0, z: 0 },
+    swinging: !!swing,
+    webAnchor: anchor ? { x: anchor.x, y: anchor.y, z: anchor.z } : null,
   };
 }
 
