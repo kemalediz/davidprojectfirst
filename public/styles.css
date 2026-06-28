@@ -365,24 +365,36 @@ body {
 
 .modal-close {
   position: absolute;
-  top: 14px;
-  right: 16px;
-  background: transparent;
-  border: none;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: 999px;
   color: var(--muted);
-  font-size: 30px;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.modal-close:hover { color: var(--text); }
+.modal-close:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(237, 29, 36, 0.5);
+}
 
 .detail-head {
   display: flex;
   gap: 16px;
   align-items: center;
   margin-bottom: 6px;
+  /* keep the favourite heart well clear of the close (×) button */
+  padding-right: 52px;
 }
 
 .detail-avatar {
@@ -814,34 +826,58 @@ body {
 
 /* ---------- Favourite buttons ---------- */
 .fav-btn {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   line-height: 1;
-  padding: 0;
-  transition: transform 0.15s, color 0.15s;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  transition: transform 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.fav-btn:hover { transform: scale(1.15); color: var(--marvel-red); }
+.fav-btn:hover { color: var(--marvel-red); }
 .fav-btn.on { color: var(--marvel-red); }
 
+/* Card heart: a proper round, tappable button (was narrow/squished before). */
 .card-fav {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  font-size: 20px;
+  top: 12px;
+  left: 12px;
   z-index: 2;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  background: rgba(0, 0, 0, 0.45);
+  border-color: var(--line);
+  backdrop-filter: blur(4px);
 }
 
+.card-fav:hover {
+  transform: scale(1.1);
+  background: rgba(0, 0, 0, 0.6);
+  border-color: rgba(237, 29, 36, 0.6);
+}
+
+/* Detail heart: roomy, never collides with the close button. */
 .detail-fav {
-  font-size: 30px;
+  width: 46px;
+  height: 46px;
+  font-size: 26px;
   flex-shrink: 0;
   align-self: flex-start;
+  background: var(--panel-2);
+  border-color: var(--line);
 }
 
-/* nudge the card title clear of the corner heart */
-.card .card-avatar { margin-left: 26px; }
+.detail-fav:hover {
+  transform: scale(1.08);
+  border-color: rgba(237, 29, 36, 0.6);
+}
+
+/* nudge the card title/avatar clear of the corner heart */
+.card .card-avatar { margin-left: 28px; }
 
 /* ---------- Favourites filter chip ---------- */
 .chip-fav {
@@ -900,4 +936,234 @@ body {
   .detail-grid { grid-template-columns: 1fr; }
   .modal-panel { padding: 22px; }
   .brand-mark, .brand-sub { font-size: 24px; }
+}
+
+/* ---------- Character images (avatars) ---------- */
+.card-avatar.has-img,
+.detail-avatar.has-img {
+  padding: 0;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+
+.card-avatar img,
+.detail-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+/* When an image is missing or fails to load, the JS converts the tile back to
+   initials and tags it .avatar-fallback — keep the original red gradient look. */
+.avatar-fallback {
+  background: linear-gradient(135deg, var(--marvel-red), var(--marvel-red-dark)) !important;
+  display: grid;
+  place-items: center;
+}
+
+/* ---------- Primary navigation (Characters / Creation / Films) ---------- */
+.primary-nav {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px;
+}
+
+.nav-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.18s, background 0.18s;
+}
+
+.nav-tab:hover { color: var(--text); }
+
+.nav-tab.active {
+  background: var(--marvel-red);
+  color: #fff;
+}
+
+/* ---------- Views ---------- */
+.view[hidden] { display: none; }
+#char-controls[hidden],
+.filters[hidden] { display: none; }
+
+/* ---------- Long-form article (Creation) ---------- */
+.article-head {
+  text-align: center;
+  margin: 18px 0 8px;
+}
+
+.article-head h1 {
+  font-size: clamp(28px, 5vw, 42px);
+  margin: 0 0 8px;
+  letter-spacing: 0.5px;
+}
+
+.article-lede {
+  color: var(--muted);
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: 16px;
+}
+
+.article-body {
+  max-width: 800px;
+  margin: 12px auto 0;
+}
+
+.article-section {
+  margin: 0 0 30px;
+  border-left: 3px solid var(--marvel-red);
+  padding-left: 20px;
+}
+
+.article-section h2 {
+  font-size: 22px;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.article-section p {
+  margin: 0 0 14px;
+  color: #d7d7df;
+}
+
+/* ---------- Storyline & fact stacks (detail modal) ---------- */
+.storyline p { margin: 0 0 12px; }
+.storyline p:last-child { margin-bottom: 0; }
+.detail-section .fact + .fact { margin-top: 8px; }
+
+/* ---------- Films ---------- */
+.films-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 18px 0 22px;
+}
+
+.films-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.film-card {
+  background: linear-gradient(160deg, var(--panel), var(--bg-2));
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--marvel-red);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+
+.film-card[hidden] { display: none; }
+
+.film-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.film-head h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.film-year {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.film-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 14px;
+}
+
+.badge.film-phase {
+  color: var(--hero);
+  border-color: rgba(63, 167, 255, 0.4);
+}
+
+.film-synopsis p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #d7d7df;
+}
+
+.film-block { margin-top: 16px; }
+
+.film-block h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--marvel-red);
+}
+
+.film-block .fact + .fact { margin-top: 8px; }
+
+/* ---------- Auth mode note ---------- */
+.auth-mode-note {
+  background: rgba(63, 167, 255, 0.12);
+  border: 1px solid rgba(63, 167, 255, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+.auth-mode-note[hidden] { display: none; }
+
+/* ---------- Continuous hover motion (brand + auth buttons) ---------- */
+@keyframes mp-bob {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+
+.brand {
+  transition: transform 0.15s ease;
+}
+
+.brand:hover,
+.signin-open:hover,
+#signup-form button[type="submit"]:hover:not(:disabled) {
+  animation: mp-bob 1s ease-in-out infinite;
+}
+
+/* The bob animation drives transform on hover, so drop the static lift to
+   avoid the two fighting. */
+.signin-open:hover { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand:hover,
+  .signin-open:hover,
+  #signup-form button[type="submit"]:hover:not(:disabled) {
+    animation: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .films-grid { grid-template-columns: 1fr; }
+  .primary-nav { width: 100%; justify-content: center; }
+  .nav-tab { padding: 9px 14px; }
 }

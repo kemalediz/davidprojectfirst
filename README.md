@@ -32,9 +32,19 @@ loaded over the CDN** as ES modules.
 You don't need Firebase just to browse. The full character set ships in
 `public/data.js`, and the app falls back to it automatically when Firebase
 isn't configured (or Firestore is unreachable/empty) — so `python3 backend.py`
-gives you a working wiki immediately. Configuring Firebase adds **live data**
-(edit characters in Firestore) and **favourites**. A blue notice bar tells you
-when the built-in set is being used.
+gives you a working wiki immediately. A blue notice bar tells you when the
+built-in set is being used.
+
+**Sign-in and favourites also work out of the box.** When Firebase isn't
+configured, Marvelpedia uses a lightweight **local account** system
+(`public/auth-local.js`) backed by the browser's `localStorage`: you can sign
+up, sign in, and save favourites with zero setup. The "Continue with Google"
+button signs you in as a local guest in this mode. These accounts live only in
+your browser and passwords aren't securely hashed — it's a convenience for
+local/offline use. Configuring Firebase (below) upgrades this to **real
+authentication** (email/password + Google OAuth), **cloud-synced favourites**,
+and **live character data** edited in Firestore. The app picks the mode
+automatically; no code changes needed.
 
 ## Setup
 

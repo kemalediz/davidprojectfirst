@@ -1,7 +1,11 @@
-// Optional sign-in for Marvelpedia.
+// Sign-in for Marvelpedia.
 // Browsing the wiki is public — sign-in is only needed to save favourites.
-// On auth changes this notifies app.js via setUser() so it can load/clear the
-// user's favourites.
+//
+// Two modes, chosen automatically:
+//   • Firebase configured  → real Firebase Authentication (email/password + Google).
+//   • Not configured       → a localStorage-backed fallback (see auth-local.js) so
+//                            sign-in and favourites still work out of the box.
+// Either way, auth changes are reported to app.js via setUser().
 
 import { auth, isConfigured } from "./firebase-config.js";
 import {
@@ -12,7 +16,10 @@ import {
   GoogleAuthProvider,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { localAuth } from "./auth-local.js";
 import { setUser } from "./app.js";
+
+const useFirebase = isConfigured;
 
 const loginModal = document.getElementById("login-modal");
 const signinOpen = document.getElementById("signin-open");
@@ -20,6 +27,7 @@ const userBox = document.getElementById("user-box");
 const userEmailEl = document.getElementById("user-email");
 const signoutBtn = document.getElementById("signout-btn");
 const googleBtn = document.getElementById("google-btn");
+const modeNote = document.getElementById("auth-mode-note");
 
 const tabs = {
   signin: document.getElementById("tab-signin"),
@@ -36,9 +44,6 @@ const googleProvider = new GoogleAuthProvider();
 // ---- Login modal open/close ------------------------------------------------
 
 function openLogin() {
-  if (!isConfigured) {
-    setMessage("Firebase isn't configured yet — add your config in public/firebase-config.js.", "error");
-  }
   loginModal.hidden = false;
   document.body.style.overflow = "hidden";
 }
@@ -98,19 +103,33 @@ function setActiveTab(form) {
 tabs.signin.addEventListener("click", () => setActiveTab("signin"));
 tabs.signup.addEventListener("click", () => setActiveTab("signup"));
 
-// ---- Submission ------------------------------------------------------------
+// ---- Mode-specific actions -------------------------------------------------
 
 function credentials(form) {
   const data = new FormData(form);
   return { email: String(data.get("email")).trim(), password: String(data.get("password")) };
 }
 
+const actions = useFirebase
+  ? {
+      signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
+      signUp: (email, password) => createUserWithEmailAndPassword(auth, email, password),
+      google: () => signInWithPopup(auth, googleProvider),
+      signOut: () => signOut(auth),
+    }
+  : {
+      signIn: (email, password) => localAuth.signIn(email, password),
+      signUp: (email, password) => localAuth.signUp(email, password),
+      google: () => localAuth.signInGoogle(),
+      signOut: () => localAuth.signOut(),
+    };
+
 async function handleAuth(action, form, pendingText) {
   setMessage(pendingText, "");
   const { email, password } = credentials(form);
   try {
-    await action(auth, email, password);
-    // onAuthStateChanged closes the modal and updates the UI.
+    await action(email, password);
+    // The auth-state handler closes the modal and updates the UI.
   } catch (err) {
     setMessage(describeError(err), "error");
   }
@@ -118,48 +137,51 @@ async function handleAuth(action, form, pendingText) {
 
 forms.signin.addEventListener("submit", (e) => {
   e.preventDefault();
-  handleAuth(signInWithEmailAndPassword, e.target, "Signing in…");
+  handleAuth(actions.signIn, e.target, "Signing in…");
 });
 
 forms.signup.addEventListener("submit", (e) => {
   e.preventDefault();
-  handleAuth(createUserWithEmailAndPassword, e.target, "Creating account…");
+  handleAuth(actions.signUp, e.target, "Creating account…");
 });
 
 googleBtn.addEventListener("click", async () => {
-  setMessage("Opening Google sign-in…", "");
+  setMessage(useFirebase ? "Opening Google sign-in…" : "Signing in as a local guest…", "");
   try {
-    await signInWithPopup(auth, googleProvider);
+    await actions.google();
   } catch (err) {
     const text = describeError(err);
     setMessage(text, text ? "error" : "");
   }
 });
 
-signoutBtn.addEventListener("click", () => signOut(auth));
+signoutBtn.addEventListener("click", () => actions.signOut());
 
 // ---- Auth state ------------------------------------------------------------
 
-if (!isConfigured) {
-  // Browsing still works; the login controls just won't function.
-  [forms.signin, forms.signup].forEach((f) =>
-    f.querySelectorAll("input, button").forEach((el) => (el.disabled = true))
-  );
-  googleBtn.disabled = true;
+function applyUser(user) {
+  if (user) {
+    userEmailEl.textContent = user.email || "Signed in";
+    userBox.hidden = false;
+    signinOpen.hidden = true;
+    forms.signin.reset();
+    forms.signup.reset();
+    closeLogin();
+  } else {
+    userBox.hidden = true;
+    signinOpen.hidden = false;
+  }
+  // Tell the wiki who's signed in so it can load/clear favourites.
+  setUser(user || null);
+}
+
+if (useFirebase) {
+  onAuthStateChanged(auth, applyUser);
 } else {
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      userEmailEl.textContent = user.email || "Signed in";
-      userBox.hidden = false;
-      signinOpen.hidden = true;
-      forms.signin.reset();
-      forms.signup.reset();
-      closeLogin();
-    } else {
-      userBox.hidden = true;
-      signinOpen.hidden = false;
-    }
-    // Tell the wiki who's signed in so it can load/clear favourites.
-    setUser(user || null);
-  });
+  if (modeNote) {
+    modeNote.hidden = false;
+    modeNote.textContent =
+      "Using local accounts stored in this browser. Configure Firebase for real sign-in (see README).";
+  }
+  localAuth.onChange(applyUser);
 }
