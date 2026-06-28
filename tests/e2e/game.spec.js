@@ -95,15 +95,25 @@ test('switching nav tabs pauses and resumes the loop without errors', async ({ p
     { timeout: 20_000 }
   );
 
-  // Leave to Characters.
+  // The loop is running while the game view is active.
+  expect(await page.evaluate(() => window.MarvelGame.getState().running)).toBe(true);
+
+  // Leave to Characters — the RAF loop must actually stop (CPU-leak guarantee).
   await page.click('.nav-tab[data-view="characters"]');
   await expect(page.locator('#view-characters')).toBeVisible();
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => window.MarvelGame.getState().running === false, null, {
+    timeout: 5_000,
+  });
+  expect(await page.evaluate(() => window.MarvelGame.getState().running)).toBe(false);
 
   // Back to the game — should resume, still started, no select overlay.
   await page.click('.nav-tab[data-view="game"]');
   await expect(page.locator('#view-game canvas')).toBeVisible();
+  await page.waitForFunction(() => window.MarvelGame.getState().running === true, null, {
+    timeout: 5_000,
+  });
   const state = await page.evaluate(() => window.MarvelGame.getState());
+  expect(state.running).toBe(true);
   expect(state.started).toBe(true);
   expect(state.heroId).toBe('thor');
   expect(errors).toEqual([]);

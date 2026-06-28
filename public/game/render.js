@@ -588,11 +588,25 @@ function attack() {
   }
 }
 
+// Brief "got hit" squash that restores itself, rather than permanently
+// shrinking the mesh on every hit.
 function bump(mesh) {
+  if (mesh.userData.bumpRestore) return; // already bumping
+  mesh.userData.bumpRestore = { x: mesh.scale.x, y: mesh.scale.y, z: mesh.scale.z };
   mesh.scale.multiplyScalar(0.85);
+  setTimeout(() => {
+    const r = mesh.userData.bumpRestore;
+    if (r) {
+      mesh.scale.set(r.x, r.y, r.z);
+      mesh.userData.bumpRestore = null;
+    }
+  }, 90);
 }
 
 function updateProjectiles(dt) {
+  if (projectiles.length === 0) return;
+  // Gather once per frame, not once per projectile (was O(N²)).
+  const villains = gatherEntities(['villain', 'robbery']);
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const pr = projectiles[i];
     core.stepProjectile(pr.p, dt);
@@ -600,8 +614,8 @@ function updateProjectiles(dt) {
     pr.mesh.rotation.y += dt * 12;
     pr.life -= dt;
     let hit = false;
-    const villains = gatherEntities(['villain', 'robbery']);
     for (const er of villains) {
+      if (completed.has(er.data.id)) continue; // already defeated this frame
       if (dist2(pr.p.pos.x, pr.p.pos.z, er.data.x, er.data.z) < PROJECTILE_HIT_R) {
         if (core.applyDamage(er.data, ATTACK_DAMAGE)) defeatEntity(er);
         else bump(er.mesh);
@@ -904,6 +918,10 @@ function stopLoop() {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
+  // Drop any keys held while navigating away so they don't "stick" and fire
+  // on resume.
+  down.clear();
+  pressed.clear();
 }
 
 function togglePause() {
@@ -931,6 +949,11 @@ function clearWorld() {
     scene.remove(player.group);
     scene.remove(player.web);
     (player.group.userData.mats || []).forEach((m) => m.dispose && m.dispose());
+    // The swing web's line material + geometry and the hero name/emoji label's
+    // sprite material aren't in userData.mats — dispose them explicitly.
+    if (player.web && player.web.material && player.web.material.dispose) player.web.material.dispose();
+    if (player.webGeo && player.webGeo.dispose) player.webGeo.dispose();
+    if (player.label && player.label.material && player.label.material.dispose) player.label.material.dispose();
     player = null;
   }
   completed.clear();
@@ -986,6 +1009,7 @@ function getState() {
   return {
     ready,
     started,
+    running,
     heroId: hero ? hero.id : null,
     score,
     chunksLoaded: chunks.size,
