@@ -84,6 +84,34 @@ test('movement keys move the player and throw no errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('fullscreen toggle button exists, is clickable, and throws no errors', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/');
+  await page.click('.nav-tab[data-view="game"]');
+  await page.click('.mg-hero-card[data-hero-id="spider-man"]');
+  await page.waitForFunction(
+    () => window.MarvelGame && window.MarvelGame.getState().started === true,
+    null,
+    { timeout: 20_000 }
+  );
+
+  // The control is present and visible in the HUD.
+  const btn = page.locator('.mg-fullscreen-btn');
+  await expect(btn).toBeVisible();
+
+  // Headless can't actually grant OS fullscreen, so neutralise the API to a
+  // resolved no-op; we only assert the click handler runs cleanly.
+  await page.evaluate(() => {
+    const root = document.getElementById('view-game');
+    if (root) root.requestFullscreen = () => Promise.resolve();
+    document.exitFullscreen = () => Promise.resolve();
+  });
+
+  await btn.click();
+  await page.waitForTimeout(300);
+  expect(errors).toEqual([]);
+});
+
 test('switching nav tabs pauses and resumes the loop without errors', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/');

@@ -1174,14 +1174,27 @@ body {
 .mg-root {
   position: relative;
   width: 100%;
-  height: 80vh;
-  min-height: 480px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  /* height is set in JS (resize) so the game fills the viewport below the header;
+     this is just a sensible fallback before the first measure. */
+  height: calc(100vh - 150px);
+  min-height: 360px;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
   background: #0a0a12;
   user-select: none;
 }
+/* Immersive, full-bleed layout while the Play view is active: drop the
+   centred container gutters + footer so the canvas owns the viewport. The
+   sticky site header (z-index 20) stays on top so the nav is always reachable. */
+body.mg-active main.container {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+body.mg-active .site-footer { display: none; }
+/* When the game root itself is the OS-fullscreen element, fill the screen. */
+.mg-root:fullscreen { width: 100vw; height: 100vh; }
 .mg-canvas-wrap {
   position: absolute;
   inset: 0;
@@ -1268,6 +1281,14 @@ body {
   cursor: pointer;
 }
 .mg-btn:hover { border-color: var(--marvel-red); }
+.mg-icon-btn {
+  width: 36px;
+  padding: 7px 0;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1;
+}
+.mg-exit-btn:hover { border-color: var(--marvel-red); background: rgba(237, 29, 36, 0.25); }
 
 .mg-banner {
   position: absolute;
