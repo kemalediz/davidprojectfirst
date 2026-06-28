@@ -13,6 +13,11 @@
 //   pass yaw+PI to meleeHits so its arc lines up with travel direction.
 
 import * as THREE from 'three';
+// mergeGeometries lives in three's addons. The site's importmap only maps the
+// bare "three" specifier (and we must not edit index.html here), so we pull the
+// addon straight from the same pinned CDN build — it `import`s from bare "three"
+// internally, which still resolves through the importmap.
+import { mergeGeometries } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js';
 import * as core from './core.js';
 
 const DATA = (typeof window !== 'undefined' && window.MARVEL_GAME_DATA) || {};
@@ -59,7 +64,7 @@ let rafId = null;
 let lastTime = 0;
 let elapsed = 0;
 
-let renderer, scene, camera, sun, ambient;
+let renderer, scene, camera, sun, hemi, skyDome;
 let canvasWrap, hud, els; // DOM
 let hero = null; // chosen hero object from core.HEROES
 let player = null; // { state, group, web, hp }
@@ -80,10 +85,21 @@ const down = new Set();
 const pressed = new Set();
 let clickAttackQueued = false;
 
-// shared geometry / materials (created once, never disposed)
-let boxGeo, gemGeo, planeGeo, partGeo, buildingMat;
-const groundMats = []; // by palette index
+// shared geometry / materials (created once, never disposed). Everything here is
+// referenced by many chunks/entities and lives for the whole session — per-chunk
+// and per-hero meshes only ever reference these, so chunk-unload / hero-change
+// disposes the small per-instance stuff (InstancedMesh buffers, themed materials)
+// and never these shared singletons.
+let boxGeo, gemGeo, planeGeo, partGeo, buildingMat, gemMat;
+let cylGeo, sphGeo, coneGeo, circleGeo; // for de-blockified detail + humanoids
+let propMats = null; // { lampPost, lampGlow, trunk, foliage, tank, antenna }
+const groundMats = []; // by palette index (textured roads/sidewalks)
 const spriteTexCache = new Map();
+// Shared humanoid materials for WORLD entities (villains / civilians / npcs),
+// keyed by appearance (type+tier). Created once, reused across every entity and
+// every chunk, and (like boxGeo / buildingMat) live for the whole session —
+// only the per-entity *merged geometry* is allocated/disposed per entity.
+const figureMatCache = new Map();
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -168,6 +184,135 @@ function makeSprite(text, opts, height) {
   return sprite;
 }
 
+// A per-entity health bar. Unlike labels these are dynamic (redrawn on every
+// hit), so each gets its own canvas/texture/material. The texture + material are
+// per-entity GPU resources: they're freed when the entity is defeated (see
+// defeatEntity) or when its chunk unloads, whichever comes first. The canvas is
+// plain DOM and is garbage-collected once unreferenced.
+function makeHealthBar(width, tierColor) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 22;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(width, (width * canvas.height) / canvas.width, 1);
+  const hb = { sprite, canvas, tex, mat, tierColor: tierColor || '#ff5252' };
+  drawHealthBar(hb, 1);
+  return hb;
+}
+function drawHealthBar(hb, ratio) {
+  const ctx = hb.canvas.getContext('2d');
+  const W = hb.canvas.width;
+  const H = hb.canvas.height;
+  const r = Math.max(0, Math.min(1, ratio));
+  ctx.clearRect(0, 0, W, H);
+  // tier-coloured border + dark track
+  ctx.fillStyle = hb.tierColor;
+  roundRect(ctx, 0, 0, W, H, 9);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(8,8,12,0.85)';
+  roundRect(ctx, 3, 3, W - 6, H - 6, 7);
+  ctx.fill();
+  // fill, green -> amber -> red as it drains
+  const fw = (W - 10) * r;
+  ctx.fillStyle = r > 0.5 ? '#46d36a' : r > 0.25 ? '#f0a020' : '#ed1d24';
+  if (fw > 0) {
+    roundRect(ctx, 5, 5, fw, H - 10, 5);
+    ctx.fill();
+  }
+  hb.tex.needsUpdate = true;
+}
+
+// Bake a reusable facade texture: a faint mullion grid for the diffuse map (so
+// per-instance region colour still shows through) plus a separate emissive map
+// of warmly-lit windows, so flat building boxes read as glassy towers.
+function makeFacadeTextures() {
+  const cols = 5;
+  const rows = 8;
+  // diffuse: near-white with thin darker frames -> instanceColor tints it
+  const cd = document.createElement('canvas');
+  cd.width = 64;
+  cd.height = 96;
+  const xd = cd.getContext('2d');
+  xd.fillStyle = '#f2f2f2';
+  xd.fillRect(0, 0, cd.width, cd.height);
+  xd.fillStyle = 'rgba(0,0,0,0.20)';
+  for (let c = 0; c <= cols; c++) xd.fillRect((c * cd.width) / cols - 1, 0, 2, cd.height);
+  for (let r = 0; r <= rows; r++) xd.fillRect(0, (r * cd.height) / rows - 1, cd.width, 2);
+  const mapTex = new THREE.CanvasTexture(cd);
+  mapTex.anisotropy = 4;
+  // emissive: black with lit windows (some dark for life)
+  const ce = document.createElement('canvas');
+  ce.width = 64;
+  ce.height = 96;
+  const xe = ce.getContext('2d');
+  xe.fillStyle = '#000';
+  xe.fillRect(0, 0, ce.width, ce.height);
+  const cw = ce.width / cols;
+  const rh = ce.height / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const lit = ((r * 7 + c * 13 + ((r * c) % 5)) % 10) < 6;
+      xe.fillStyle = lit ? '#ffe9a8' : '#11131c';
+      xe.fillRect(c * cw + 2, r * rh + 2, cw - 4, rh - 4);
+    }
+  }
+  const emiTex = new THREE.CanvasTexture(ce);
+  return { mapTex, emiTex };
+}
+
+// Per-palette ground texture: asphalt roads, lighter sidewalk blocks on the 4x4
+// grid, dashed centre lines and the odd crosswalk — so streets aren't one flat
+// colour.
+function makeGroundTexture(palIdx) {
+  const sk = SKY[palIdx];
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const x = c.getContext('2d');
+  const base = new THREE.Color(sk.ground);
+  const road = base.clone().multiplyScalar(0.55);
+  const walk = base.clone().multiplyScalar(1.45);
+  const hex = (col) => '#' + col.getHexString();
+  // asphalt everywhere
+  x.fillStyle = hex(road);
+  x.fillRect(0, 0, size, size);
+  const grid = 4;
+  const cell = size / grid;
+  const margin = cell * 0.16;
+  for (let gz = 0; gz < grid; gz++) {
+    for (let gx = 0; gx < grid; gx++) {
+      // sidewalk block around each building plot
+      x.fillStyle = hex(walk);
+      x.fillRect(gx * cell + margin, gz * cell + margin, cell - 2 * margin, cell - 2 * margin);
+      x.fillStyle = hex(base);
+      const p = margin * 0.45;
+      x.fillRect(
+        gx * cell + margin + p,
+        gz * cell + margin + p,
+        cell - 2 * margin - 2 * p,
+        cell - 2 * margin - 2 * p
+      );
+    }
+  }
+  // dashed lane markings down the road centres
+  x.fillStyle = 'rgba(240,210,90,0.85)';
+  for (let g = 1; g < grid; g++) {
+    const cx = g * cell;
+    for (let yy = 6; yy < size; yy += 22) x.fillRect(cx - 2, yy, 4, 12); // vertical roads
+    for (let xx = 6; xx < size; xx += 22) x.fillRect(xx, cx - 2, 12, 4); // horizontal roads
+  }
+  // a crosswalk
+  x.fillStyle = 'rgba(235,235,235,0.8)';
+  for (let i = 0; i < 6; i++) x.fillRect(cell - 14 + i * 5, cell * 2 - 16, 3, 32);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
 // ---------------------------------------------------------------------------
 // DOM scaffolding (canvas + HUD + character select), built inside #view-game
 // ---------------------------------------------------------------------------
@@ -199,6 +344,8 @@ function buildDom() {
     <div class="mg-topright">
       <button type="button" class="mg-btn mg-change-hero">Change hero</button>
       <button type="button" class="mg-btn mg-pause-btn">Pause</button>
+      <button type="button" class="mg-btn mg-icon-btn mg-fullscreen-btn" aria-label="Toggle fullscreen" title="Fullscreen">⛶</button>
+      <button type="button" class="mg-btn mg-icon-btn mg-exit-btn" aria-label="Exit game" title="Back to site">✕</button>
     </div>
     <div class="mg-banner"><span class="mg-banner-country"></span><span class="mg-banner-dot">•</span><span class="mg-banner-city"></span></div>
     <div class="mg-mission">
@@ -239,8 +386,45 @@ function buildDom() {
 
   hud.querySelector('.mg-change-hero').addEventListener('click', () => showSelect());
   hud.querySelector('.mg-pause-btn').addEventListener('click', () => togglePause());
+  hud.querySelector('.mg-fullscreen-btn').addEventListener('click', () => toggleFullscreen());
+  hud.querySelector('.mg-exit-btn').addEventListener('click', () => exitToSite());
   buildSelectGrid();
   return true;
+}
+
+// Immersive fullscreen via the Fullscreen API on the game root. Headless
+// browsers can reject the request (no user-activation / not allowed) — swallow
+// both sync throws and async rejections so clicking it never logs an error.
+function toggleFullscreen() {
+  try {
+    const el = (els && els.view) || document.getElementById('view-game');
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      const p = el.requestFullscreen && el.requestFullscreen();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } else {
+      const p = document.exitFullscreen && document.exitFullscreen();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  } catch (_) {
+    /* fullscreen unsupported / blocked — ignore */
+  }
+}
+
+// Always leave a way out of the immersive view: drop OS fullscreen if active,
+// then return to the wiki via the existing nav (keeps app.js routing in charge).
+function exitToSite() {
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      const p = document.exitFullscreen();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  const tab = document.querySelector('.nav-tab[data-view="characters"]');
+  if (tab) tab.click();
+  else onView('characters');
 }
 
 function buildSelectGrid() {
@@ -289,21 +473,70 @@ function initRenderer() {
 
     camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.5, CHUNK_SIZE * (LOAD_RADIUS + 2));
 
-    sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    // Soft, readable daylight: a directional "sun" for form + a hemisphere fill
+    // that tints shade with the sky and bounces the ground colour up. No
+    // realtime shadow maps (perf) — players get a cheap blob shadow instead.
+    sun = new THREE.DirectionalLight(0xffffff, 1.0);
     sun.position.set(0.5, 1, 0.3).multiplyScalar(200);
     scene.add(sun);
-    ambient = new THREE.AmbientLight(0x6f86b8, 0.9);
-    scene.add(ambient);
+    scene.add(sun.target);
+    hemi = new THREE.HemisphereLight(SKY[0].sky, SKY[0].ground, 0.85);
+    scene.add(hemi);
 
-    // shared resources
+    // gradient sky dome (top sky colour -> horizon fog colour), recoloured per
+    // region. Unfogged + follows the camera so the horizon always fades cleanly.
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        topColor: { value: new THREE.Color(SKY[0].sky) },
+        bottomColor: { value: new THREE.Color(SKY[0].fog) },
+      },
+      vertexShader:
+        'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader:
+        'varying vec3 vP; uniform vec3 topColor; uniform vec3 bottomColor; void main(){ float h = clamp(normalize(vP).y*0.6+0.35,0.0,1.0); gl_FragColor = vec4(mix(bottomColor, topColor, h),1.0); }',
+    });
+    skyDome = new THREE.Mesh(new THREE.SphereGeometry(camera.far * 0.92, 24, 14), skyMat);
+    skyDome.frustumCulled = false;
+    scene.add(skyDome);
+
+    // shared geometry
     boxGeo = new THREE.BoxGeometry(1, 1, 1);
     gemGeo = new THREE.OctahedronGeometry(2.4, 0);
     planeGeo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE);
     partGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-    buildingMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    cylGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
+    sphGeo = new THREE.SphereGeometry(0.5, 14, 10);
+    coneGeo = new THREE.ConeGeometry(0.5, 1, 14);
+    circleGeo = new THREE.CircleGeometry(1, 28);
+
+    // textured buildings (lit windows) + per-palette textured streets
+    const facade = makeFacadeTextures();
+    buildingMat = new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      map: facade.mapTex,
+      emissive: 0xffffff,
+      emissiveMap: facade.emiTex,
+      emissiveIntensity: 0.65,
+    });
     for (let i = 0; i < SKY.length; i++) {
-      groundMats.push(new THREE.MeshLambertMaterial({ color: SKY[i].ground }));
+      groundMats.push(new THREE.MeshLambertMaterial({ map: makeGroundTexture(i) }));
     }
+
+    // single shared collectible-gem material (one per session, not per gem)
+    gemMat = new THREE.MeshLambertMaterial({ color: 0xffe066, emissive: 0x665200 });
+
+    // shared prop materials (street furniture / greenery), reused by every chunk
+    propMats = {
+      lampPost: new THREE.MeshLambertMaterial({ color: 0x30343c }),
+      lampGlow: new THREE.MeshLambertMaterial({ color: 0xffe9a0, emissive: 0xffcf66, emissiveIntensity: 0.9 }),
+      trunk: new THREE.MeshLambertMaterial({ color: 0x6b4a2e }),
+      foliage: new THREE.MeshLambertMaterial({ color: 0x3f8f4a }),
+      tank: new THREE.MeshLambertMaterial({ color: 0x8a8f98 }),
+      antenna: new THREE.MeshLambertMaterial({ color: 0x52555c }),
+    };
 
     renderer.domElement.addEventListener('mousedown', (e) => {
       if (e.button === 0 && started && !paused) clickAttackQueued = true;
@@ -311,6 +544,8 @@ function initRenderer() {
 
     resize();
     window.addEventListener('resize', resize);
+    // Re-fit the renderer when entering/leaving OS fullscreen.
+    document.addEventListener('fullscreenchange', resize);
 
     ready = true;
     window.__MARVELGAME_READY = true;
@@ -324,47 +559,382 @@ function initRenderer() {
 
 function resize() {
   if (!renderer || !canvasWrap) return;
+  // Immersive: the game root fills the viewport below the sticky site header
+  // (so the nav stays visible/clickable). In OS fullscreen it fills the screen.
+  const root = els && els.view ? els.view : canvasWrap.parentElement;
+  if (root) {
+    if (document.fullscreenElement === root) {
+      root.style.height = '100vh';
+    } else {
+      const header = document.querySelector('.site-header');
+      const hb = header ? header.offsetHeight : 0;
+      root.style.height = Math.max(360, window.innerHeight - hb) + 'px';
+    }
+  }
   const w = canvasWrap.clientWidth || window.innerWidth;
-  const h = canvasWrap.clientHeight || Math.round(window.innerHeight * 0.8);
+  const h = canvasWrap.clientHeight || window.innerHeight;
   if (w === 0 || h === 0) return;
+  // device-pixel-ratio aware, capped at 2 so retina / fullscreen stays cheap
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 
 // ---------------------------------------------------------------------------
-// Figures
+// Figures — assembled low-poly humanoids (head / torso / jointed arms+legs)
+// out of shared primitives. Per-instance materials go into group.userData.mats
+// so a hero change / chunk unload disposes them; the geometry is shared and
+// never disposed.
 // ---------------------------------------------------------------------------
+function mkMat(color, emissive, intensity) {
+  return new THREE.MeshLambertMaterial(
+    emissive != null
+      ? { color, emissive, emissiveIntensity: intensity != null ? intensity : 1 }
+      : { color }
+  );
+}
+function addMesh(parent, geo, mat, sx, sy, sz, px, py, pz) {
+  const m = new THREE.Mesh(geo, mat);
+  m.scale.set(sx, sy, sz);
+  m.position.set(px || 0, py || 0, pz || 0);
+  parent.add(m);
+  return m;
+}
+
+// Build a rigged humanoid. `opts` carries colours + scale/bulk and an optional
+// `decorate(parts, M, s, W)` that bolts on hero-specific detail (mask, cape,
+// shield, hammer, arc-reactor…). Returns a Group whose userData has:
+//   mats  — every material it owns (for disposal)
+//   limbs — { armL, armR, legL, legR, head } pivots for animation
+//   heroScale — vertical scale, so callers can place labels/shadows.
+function buildHumanoid(opts) {
+  const o = opts || {};
+  const s = o.scale || 1;
+  const W = o.bulk || 1;
+  const mats = [];
+  const M = (c, e, i) => {
+    const m = mkMat(c, e, i);
+    mats.push(m);
+    return m;
+  };
+  const group = new THREE.Group();
+
+  const torsoMat = M(o.torso);
+  const limbMat = M(o.limb != null ? o.limb : o.torso);
+  const foreMat = M(o.forearm != null ? o.forearm : o.limb != null ? o.limb : o.torso);
+  const legMat = M(o.legs != null ? o.legs : o.torso);
+  const skinMat = M(o.skin != null ? o.skin : 0xf1c9a5);
+  const headMat = o.headMat != null ? M(o.headMat) : skinMat;
+
+  addMesh(group, boxGeo, torsoMat, 3.0 * W * s, 4.4 * s, 1.9 * s, 0, 6.6 * s, 0); // torso
+  const torso = group.children[group.children.length - 1];
+  addMesh(group, boxGeo, legMat, 2.8 * W * s, 1.5 * s, 1.8 * s, 0, 4.3 * s, 0); // pelvis
+  addMesh(group, cylGeo, skinMat, 0.6 * s, 0.8 * s, 0.6 * s, 0, 8.9 * s, 0); // neck
+
+  const head = new THREE.Group();
+  head.position.set(0, 9.9 * s, 0);
+  group.add(head);
+  addMesh(head, boxGeo, headMat, 2.0 * s, 2.0 * s, 1.9 * s, 0, 0, 0);
+
+  const arm = (side) => {
+    const p = new THREE.Group();
+    p.position.set(side * (1.55 * W + 0.55) * s, 8.2 * s, 0);
+    group.add(p);
+    addMesh(p, cylGeo, limbMat, 0.78 * s, 2.1 * s, 0.78 * s, 0, -1.05 * s, 0); // upper arm
+    addMesh(p, cylGeo, foreMat, 0.66 * s, 1.9 * s, 0.66 * s, 0, -3.05 * s, 0); // forearm
+    addMesh(p, sphGeo, skinMat, 0.95 * s, 0.95 * s, 0.95 * s, 0, -4.1 * s, 0); // hand
+    return p;
+  };
+  const leg = (side) => {
+    const p = new THREE.Group();
+    p.position.set(side * 0.85 * W * s, 4.1 * s, 0);
+    group.add(p);
+    addMesh(p, cylGeo, legMat, 0.95 * s, 2.1 * s, 0.95 * s, 0, -1.05 * s, 0); // thigh
+    addMesh(p, cylGeo, legMat, 0.85 * s, 2.0 * s, 0.85 * s, 0, -3.05 * s, 0); // shin
+    addMesh(p, boxGeo, legMat, 1.0 * s, 0.6 * s, 1.7 * s, 0, -4.1 * s, 0.4 * s); // foot
+    return p;
+  };
+  const armL = arm(-1);
+  const armR = arm(1);
+  const legL = leg(-1);
+  const legR = leg(1);
+
+  group.userData.mats = mats;
+  group.userData.limbs = { armL, armR, legL, legR, head };
+  group.userData.heroScale = s;
+  const parts = { group, torso, head, armL, armR, legL, legR, skinMat, M };
+  if (o.decorate) o.decorate(parts, M, s, W);
+  return group;
+}
+
+// Generic figure for streamed NPCs / civilians / villains. mats[0] stays the
+// torso so the villain tint in buildEntityMesh keeps working.
 function makeFigure(color, scale) {
-  const g = new THREE.Group();
+  return buildHumanoid({ scale: scale || 1, torso: color, limb: color, legs: 0x2b2b34, skin: 0xf1c9a5 });
+}
+
+// ---------------------------------------------------------------------------
+// Merged world-entity figures (PERF). The player is an articulated Group (limb
+// animation), but villains / civilians / npcs never animate their limbs — so we
+// bake the ~13 humanoid parts into ONE merged BufferGeometry per entity, grouped
+// by material. A merged Mesh with a material array renders one draw call per
+// distinct material (3 for plain figures, 4 for tinted villains) instead of one
+// per part — i.e. ~13 → ~3 draw calls per entity.
+//
+// Materials are SHARED across every entity via figureMatCache, keyed by
+// appearance (type+tier). Only the merged geometry is per-entity: it's pushed to
+// the chunk's disposables (freed on unload) and to mesh.userData.ownDisposables
+// (freed early on defeat). Shared materials are never in those lists, so they
+// survive — created once, released only at teardown (like boxGeo / buildingMat).
+// ---------------------------------------------------------------------------
+const _figQ = new THREE.Quaternion(); // identity; parts are axis-aligned
+
+// Distinct materials for an appearance, in a stable colour order. `colors` has
+// { torso, arm, legs, skin }; duplicates collapse to one material.
+function sharedFigureMaterials(appearanceKey, colors) {
+  let entry = figureMatCache.get(appearanceKey);
+  if (entry) return entry;
+  const order = [];
+  for (const c of [colors.torso, colors.arm, colors.legs, colors.skin]) {
+    if (!order.includes(c)) order.push(c);
+  }
+  entry = { order, mats: order.map((c) => mkMat(c)) };
+  figureMatCache.set(appearanceKey, entry);
+  return entry;
+}
+
+// Build a single merged humanoid mesh wrapped in a Group (so the caller can add
+// the label / health-bar / aura as children and rotate/position the whole thing,
+// exactly like the old buildHumanoid Group). Layout mirrors buildHumanoid+
+// makeFigure (bulk W = 1, no per-limb rotation), so entities look identical.
+function buildMergedFigure(appearanceKey, colors, scale) {
   const s = scale || 1;
-  const body = new THREE.Mesh(boxGeo, new THREE.MeshLambertMaterial({ color }));
-  body.scale.set(3 * s, 6 * s, 2 * s);
-  body.position.y = 3 * s;
-  g.add(body);
-  const head = new THREE.Mesh(boxGeo, new THREE.MeshLambertMaterial({ color: 0xf1c9a5 }));
-  head.scale.set(2 * s, 2 * s, 2 * s);
-  head.position.y = 7.2 * s;
-  g.add(head);
-  g.userData.mats = [body.material, head.material];
-  return g;
+  const { order, mats } = sharedFigureMaterials(appearanceKey, colors);
+  const buckets = order.map(() => []);
+  const add = (geo, color, sx, sy, sz, px, py, pz) => {
+    const g = geo.clone();
+    g.applyMatrix4(
+      new THREE.Matrix4().compose(
+        new THREE.Vector3(px, py, pz),
+        _figQ,
+        new THREE.Vector3(sx, sy, sz)
+      )
+    );
+    buckets[order.indexOf(color)].push(g);
+  };
+
+  // torso + pelvis + neck + head (centre column)
+  add(boxGeo, colors.torso, 3.0 * s, 4.4 * s, 1.9 * s, 0, 6.6 * s, 0); // torso
+  add(boxGeo, colors.legs, 2.8 * s, 1.5 * s, 1.8 * s, 0, 4.3 * s, 0); // pelvis
+  add(cylGeo, colors.skin, 0.6 * s, 0.8 * s, 0.6 * s, 0, 8.9 * s, 0); // neck
+  add(boxGeo, colors.skin, 2.0 * s, 2.0 * s, 1.9 * s, 0, 9.9 * s, 0); // head
+  // arms (upper + forearm in arm colour, hand in skin)
+  for (const side of [-1, 1]) {
+    const ax = side * 2.1 * s; // (1.55*W + 0.55)*s, W = 1
+    add(cylGeo, colors.arm, 0.78 * s, 2.1 * s, 0.78 * s, ax, 7.15 * s, 0); // upper arm
+    add(cylGeo, colors.arm, 0.66 * s, 1.9 * s, 0.66 * s, ax, 5.15 * s, 0); // forearm
+    add(sphGeo, colors.skin, 0.95 * s, 0.95 * s, 0.95 * s, ax, 4.1 * s, 0); // hand
+  }
+  // legs (thigh + shin + foot, all in legs colour)
+  for (const side of [-1, 1]) {
+    const lx = side * 0.85 * s; // 0.85*W*s, W = 1
+    add(cylGeo, colors.legs, 0.95 * s, 2.1 * s, 0.95 * s, lx, 3.05 * s, 0); // thigh
+    add(cylGeo, colors.legs, 0.85 * s, 2.0 * s, 0.85 * s, lx, 1.05 * s, 0); // shin
+    add(boxGeo, colors.legs, 1.0 * s, 0.6 * s, 1.7 * s, lx, 0, 0.4 * s); // foot
+  }
+
+  // merge each colour bucket, then merge the buckets with groups so material
+  // index N maps to usedMats[N].
+  const perMat = [];
+  const usedMats = [];
+  for (let i = 0; i < buckets.length; i++) {
+    if (!buckets[i].length) continue;
+    const merged = mergeGeometries(buckets[i], false);
+    buckets[i].forEach((g) => g.dispose());
+    perMat.push(merged);
+    usedMats.push(mats[i]);
+  }
+  const finalGeo = mergeGeometries(perMat, true);
+  perMat.forEach((g) => g.dispose());
+
+  const inner = new THREE.Mesh(finalGeo, usedMats);
+  const group = new THREE.Group();
+  group.add(inner);
+  group.userData.geo = finalGeo; // the only per-entity GPU buffer
+  group.userData.mats = []; // materials are shared — never per-entity disposed
+  group.userData.heroScale = s;
+  return group;
+}
+
+// Per-hero recognisable looks, selected by core hero id.
+const HERO_LOOKS = {
+  'spider-man': {
+    scale: 1, bulk: 0.92, torso: 0xd71920, limb: 0xd71920, forearm: 0x153a86, legs: 0x153a86,
+    skin: 0x153a86, headMat: 0xd71920,
+    decorate(parts, M, s) {
+      const eyeMat = M(0xffffff);
+      const e = new THREE.Mesh(boxGeo, eyeMat);
+      e.scale.set(0.75 * s, 0.5 * s, 0.18 * s);
+      e.position.set(-0.45 * s, 0.18 * s, 0.98 * s);
+      e.rotation.z = 0.32;
+      parts.head.add(e);
+      const e2 = e.clone();
+      e2.position.x = 0.45 * s;
+      e2.rotation.z = -0.32;
+      parts.head.add(e2);
+    },
+  },
+  'iron-man': {
+    scale: 1, bulk: 1.05, torso: 0xc01616, limb: 0xf2b21a, forearm: 0xf2b21a, legs: 0xc01616,
+    skin: 0xf2b21a, headMat: 0xf2b21a,
+    decorate(parts, M, s) {
+      const arc = new THREE.Mesh(sphGeo, M(0xffffff, 0x66e0ff, 2.2));
+      arc.scale.set(1.0 * s, 1.0 * s, 0.5 * s);
+      arc.position.set(0, 6.9 * s, 1.0 * s);
+      parts.group.add(arc);
+      const eye = new THREE.Mesh(boxGeo, M(0xbfefff, 0x66e0ff, 1.6));
+      eye.scale.set(1.25 * s, 0.26 * s, 0.18 * s);
+      eye.position.set(0, 0.22 * s, 0.98 * s);
+      parts.head.add(eye);
+    },
+  },
+  hulk: {
+    scale: 1.22, bulk: 1.5, torso: 0x4f9c2c, limb: 0x4f9c2c, forearm: 0x4f9c2c, legs: 0x4f9c2c,
+    skin: 0x4f9c2c, headMat: 0x4f9c2c,
+    decorate(parts, M, s) {
+      const shorts = new THREE.Mesh(boxGeo, M(0x4b2a78));
+      shorts.scale.set(3.2 * s, 2.0 * s, 2.1 * s);
+      shorts.position.set(0, 4.2 * s, 0);
+      parts.group.add(shorts);
+      const hair = new THREE.Mesh(boxGeo, M(0x16161c));
+      hair.scale.set(2.15 * s, 0.85 * s, 2.0 * s);
+      hair.position.set(0, 1.0 * s, -0.1 * s);
+      parts.head.add(hair);
+    },
+  },
+  'ghost-rider': {
+    scale: 1, bulk: 1.0, torso: 0x161616, limb: 0x161616, forearm: 0x232323, legs: 0x161616,
+    skin: 0xece6d6, headMat: 0xece6d6,
+    decorate(parts, M, s) {
+      const sock = M(0x0a0a0a);
+      const eL = new THREE.Mesh(boxGeo, sock);
+      eL.scale.set(0.45 * s, 0.5 * s, 0.25 * s);
+      eL.position.set(-0.45 * s, 0.05 * s, 0.95 * s);
+      parts.head.add(eL);
+      const eR = eL.clone();
+      eR.position.x = 0.45 * s;
+      parts.head.add(eR);
+      const flame = new THREE.Mesh(coneGeo, M(0xff7a00, 0xff5a00, 2.4));
+      flame.scale.set(1.7 * s, 2.8 * s, 1.7 * s);
+      flame.position.set(0, 2.0 * s, 0);
+      parts.head.add(flame);
+    },
+  },
+  'captain-america': {
+    scale: 1, bulk: 1.05, torso: 0x21438f, limb: 0x21438f, forearm: 0xcfd2da, legs: 0x21438f,
+    skin: 0xf1c9a5, headMat: 0x21438f,
+    decorate(parts, M, s) {
+      const star = new THREE.Mesh(boxGeo, M(0xffffff));
+      star.scale.set(1.2 * s, 1.2 * s, 0.18 * s);
+      star.position.set(0, 7.0 * s, 1.0 * s);
+      parts.group.add(star);
+      const stripe = new THREE.Mesh(boxGeo, M(0xc1121f));
+      stripe.scale.set(3.18 * 1.05 * s, 0.7 * s, 1.96 * s);
+      stripe.position.set(0, 5.1 * s, 0);
+      parts.group.add(stripe);
+      // round shield on the back
+      const shield = new THREE.Mesh(cylGeo, M(0xc1121f));
+      shield.scale.set(2.7 * s, 0.3 * s, 2.7 * s);
+      shield.rotation.x = Math.PI / 2;
+      shield.position.set(0, 6.6 * s, -1.25 * s);
+      parts.group.add(shield);
+      const shieldStar = new THREE.Mesh(cylGeo, M(0xffffff));
+      shieldStar.scale.set(0.95 * s, 0.34 * s, 0.95 * s);
+      shieldStar.rotation.x = Math.PI / 2;
+      shieldStar.position.set(0, 6.6 * s, -1.5 * s);
+      parts.group.add(shieldStar);
+      const a = new THREE.Mesh(boxGeo, M(0xffffff));
+      a.scale.set(0.45 * s, 0.7 * s, 0.18 * s);
+      a.position.set(0, 0.5 * s, 0.98 * s);
+      parts.head.add(a);
+    },
+  },
+  thor: {
+    scale: 1.05, bulk: 1.1, torso: 0x9aa0ad, limb: 0x9aa0ad, forearm: 0x70757f, legs: 0x3a3f49,
+    skin: 0xf1c9a5, headMat: 0xf1c9a5,
+    decorate(parts, M, s) {
+      const helm = new THREE.Mesh(boxGeo, M(0xb9bfca));
+      helm.scale.set(2.2 * s, 1.1 * s, 2.0 * s);
+      helm.position.set(0, 0.75 * s, 0);
+      parts.head.add(helm);
+      const wMat = M(0xd8dde6);
+      const wL = new THREE.Mesh(coneGeo, wMat);
+      wL.scale.set(0.5 * s, 1.5 * s, 0.5 * s);
+      wL.position.set(-1.25 * s, 1.0 * s, 0);
+      wL.rotation.z = Math.PI / 2.1;
+      parts.head.add(wL);
+      const wR = new THREE.Mesh(coneGeo, wMat);
+      wR.scale.set(0.5 * s, 1.5 * s, 0.5 * s);
+      wR.position.set(1.25 * s, 1.0 * s, 0);
+      wR.rotation.z = -Math.PI / 2.1;
+      parts.head.add(wR);
+      const cape = new THREE.Mesh(boxGeo, M(0xb01b2e));
+      cape.scale.set(3.3 * s, 6.2 * s, 0.2 * s);
+      cape.position.set(0, 6.0 * s, -1.25 * s);
+      parts.group.add(cape);
+      // Mjolnir, slung from the right hand so it swings with the arm
+      const handle = new THREE.Mesh(cylGeo, M(0x6b4a2e));
+      handle.scale.set(0.35 * s, 2.4 * s, 0.35 * s);
+      handle.position.set(0, -5.1 * s, 0);
+      parts.armR.add(handle);
+      const hammer = new THREE.Mesh(boxGeo, M(0x9aa0ad));
+      hammer.scale.set(1.7 * s, 1.1 * s, 1.1 * s);
+      hammer.position.set(0, -6.4 * s, 0);
+      parts.armR.add(hammer);
+    },
+  },
+};
+
+function buildHeroModel(h) {
+  const look = HERO_LOOKS[h.id] || { scale: 1, torso: h.color, limb: h.color, legs: 0x2b2b34 };
+  return buildHumanoid(look);
 }
 
 function buildPlayer() {
-  const group = makeFigure(hero.color, 1);
-  // hero label sprite
+  const group = buildHeroModel(hero);
+  const hs = group.userData.heroScale || 1;
+  // hero name/emoji label above the head
   const label = makeSprite(hero.emoji + ' ' + hero.name, { font: 'bold 44px "Segoe UI Emoji", "Segoe UI", sans-serif' }, 5);
-  label.position.y = 12;
+  label.position.y = 11 * hs + 3;
   group.add(label);
-  // Ghost Rider gets a bike box underneath
+
+  // Ghost Rider rides a sleeker hellfire bike
   if (hero.movement === 'bike') {
-    const bike = new THREE.Mesh(boxGeo, new THREE.MeshLambertMaterial({ color: 0x222222 }));
-    bike.scale.set(3.4, 1.6, 7);
-    bike.position.y = 0.8;
-    group.add(bike);
-    group.userData.mats.push(bike.material);
+    const mats = group.userData.mats;
+    const frameMat = mkMat(0x18181c);
+    const wheelMat = mkMat(0x2a2a30, 0xff5a00, 1.2);
+    mats.push(frameMat, wheelMat);
+    addMesh(group, boxGeo, frameMat, 1.7, 1.1, 7.2, 0, 2.3, 0.3); // body
+    addMesh(group, boxGeo, frameMat, 0.7, 0.7, 2.4, 0, 3.4, 2.6); // tank
+    const wf = addMesh(group, cylGeo, wheelMat, 2.6, 0.7, 2.6, 0, 1.5, 3.4);
+    wf.rotation.z = Math.PI / 2;
+    const wb = addMesh(group, cylGeo, wheelMat, 2.8, 0.8, 2.8, 0, 1.5, -3.4);
+    wb.rotation.z = Math.PI / 2;
+    addMesh(group, cylGeo, frameMat, 0.25, 2.2, 0.25, 0, 3.4, 3.6); // fork
+    // sit: knees forward
+    group.userData.limbs.legL.rotation.x = -1.1;
+    group.userData.limbs.legR.rotation.x = -1.1;
   }
+
   scene.add(group);
+
+  // contact / blob shadow (cheap stand-in for realtime shadows)
+  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false });
+  const shadow = new THREE.Mesh(circleGeo, shadowMat);
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.scale.set(5, 5, 5);
+  scene.add(shadow);
 
   // web line for swingers (Spider-Man)
   const webGeo = new THREE.BufferGeometry();
@@ -374,7 +944,18 @@ function buildPlayer() {
   scene.add(web);
 
   const state = { pos: { x: CHUNK_SIZE * 0.5, y: 0, z: CHUNK_SIZE * 0.5 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0 };
-  return { state, group, web, hp: hero.stats.maxHp, label, webGeo };
+  return {
+    state,
+    group,
+    web,
+    hp: hero.stats.maxHp,
+    label,
+    webGeo,
+    shadow,
+    shadowMat,
+    limbs: group.userData.limbs,
+    walkPhase: 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -398,6 +979,14 @@ function entityFlavor(e) {
   return {};
 }
 
+// Villain tiers read straight off entity.tier (set in core.generateChunk).
+// Bigger + scarier as the tier rises; elite gets a menacing emissive aura.
+const TIER_VIS = {
+  grunt: { scale: 1.0, hpColor: '#ff8a8a', aura: null },
+  tough: { scale: 1.28, hpColor: '#ffb24d', aura: { color: 0xff7a2a, scale: 8, opacity: 0.16 } },
+  elite: { scale: 1.65, hpColor: '#c77dff', aura: { color: 0x8a1bd6, scale: 12, opacity: 0.26 } },
+};
+
 function buildEntityMesh(e, rec) {
   const flavor = entityFlavor(e);
   e.flavor = flavor;
@@ -406,44 +995,171 @@ function buildEntityMesh(e, rec) {
   let labelOpts = null;
   let height = 0;
   if (e.type === 'villain' || e.type === 'robbery') {
-    mesh = makeFigure(e.type === 'robbery' ? 0x111111 : 0x3a0d0d, 1.1);
-    // tint torso villain-red
-    mesh.userData.mats[0].color.set(e.type === 'robbery' ? 0x2b2b2b : 0x9b1c1c);
-    labelText = (e.type === 'robbery' ? '💰 ' : '☠ ') + flavor.name;
+    const tier = TIER_VIS[e.tier] || TIER_VIS.grunt;
+    // arms/legs keep the dark base; torso is tinted villain-red (robbers wear
+    // dark, elites a deep menace). Colours derive purely from type+tier, so the
+    // shared-material cache key (below) fully captures the look.
+    const armColor = e.type === 'robbery' ? 0x111111 : 0x3a0d0d;
+    const torsoColor = e.type === 'robbery' ? 0x2b2b2b : e.tier === 'elite' ? 0x6e0d3a : 0x9b1c1c;
+    mesh = buildMergedFigure(
+      'v:' + e.type + ':' + (e.tier || 'grunt'),
+      { torso: torsoColor, arm: armColor, legs: 0x2b2b34, skin: 0xf1c9a5 },
+      1.1 * tier.scale
+    );
+    labelText = (e.type === 'robbery' ? '💰 ' : '☠ ') + flavor.name + (e.tier === 'elite' ? ' ★' : '');
     labelOpts = { color: '#ff7676' };
-    height = 12;
-    e.maxHp = e.hp;
+    height = 12 * tier.scale;
+    if (typeof e.maxHp !== 'number') e.maxHp = e.hp;
+
+    // menacing aura sphere for tougher tiers
+    if (tier.aura) {
+      const auraMat = new THREE.MeshBasicMaterial({
+        color: tier.aura.color,
+        transparent: true,
+        opacity: tier.aura.opacity,
+        depthWrite: false,
+      });
+      const aura = new THREE.Mesh(sphGeo, auraMat);
+      aura.scale.set(tier.aura.scale, tier.aura.scale * 1.4, tier.aura.scale);
+      aura.position.y = 6 * tier.scale;
+      mesh.add(aura);
+      rec.disposables.push(auraMat);
+      mesh.userData.auraMat = auraMat; // per-entity, non-shared -> free on defeat
+    }
+
+    // billboard health bar above the head
+    const hb = makeHealthBar(7 * Math.max(1, tier.scale * 0.9), tier.hpColor);
+    hb.sprite.position.y = height + 2.5;
+    mesh.add(hb.sprite);
+    mesh.userData.hb = hb;
+    rec.disposables.push(hb.mat, hb.tex);
   } else if (e.type === 'civilian') {
-    mesh = makeFigure(0x4f7fc4, 0.9);
+    mesh = buildMergedFigure('civilian', { torso: 0x4f7fc4, arm: 0x4f7fc4, legs: 0x2b2b34, skin: 0xf1c9a5 }, 0.9);
     labelText = '🆘 ' + flavor.name;
     labelOpts = { color: '#bcd4ff' };
     height = 11;
   } else if (e.type === 'npc') {
-    mesh = makeFigure(0xc9a227, 0.95);
+    mesh = buildMergedFigure('npc', { torso: 0xc9a227, arm: 0xc9a227, legs: 0x2b2b34, skin: 0xf1c9a5 }, 0.95);
     labelText = '❗ ' + flavor.name;
     labelOpts = { color: '#ffe79a' };
     height = 11;
   } else if (e.type === 'collectible') {
     mesh = new THREE.Group();
-    const gem = new THREE.Mesh(gemGeo, new THREE.MeshLambertMaterial({ color: 0xffe066, emissive: 0x665200 }));
+    // shared gem material (singleton) — only the (shared) gemGeo + this group are
+    // per-entity, neither needs disposing.
+    const gem = new THREE.Mesh(gemGeo, gemMat);
     mesh.add(gem);
-    mesh.userData.mats = [gem.material];
+    mesh.userData.mats = [];
     labelText = flavor.symbol || '💎';
     labelOpts = { bg: 'none', font: '60px "Segoe UI Emoji", sans-serif' };
     height = 6;
   } else {
-    mesh = makeFigure(0x888888, 0.9);
+    mesh = buildMergedFigure('default', { torso: 0x888888, arm: 0x888888, legs: 0x2b2b34, skin: 0xf1c9a5 }, 0.9);
   }
 
   if (labelText) {
     const label = makeSprite(labelText, labelOpts, height ? 4.5 : 4);
-    label.position.y = e.type === 'collectible' ? 7 : 11;
+    label.position.y = e.type === 'collectible' ? 7 : Math.max(13, height + 5);
     mesh.add(label);
-    rec.disposables.push(label.material);
+    rec.disposables.push(label.material); // sprite material is per-entity (its texture is cached/shared)
+    mesh.userData.labelMat = label.material;
   }
   mesh.position.set(e.x, e.y || 0, e.z);
   (mesh.userData.mats || []).forEach((m) => rec.disposables.push(m));
+  if (mesh.userData.geo) rec.disposables.push(mesh.userData.geo); // per-entity merged geometry
+
+  // The subset of this entity's disposables that are PER-ENTITY (not shared from
+  // a cache) — freed early in defeatEntity, then spliced out of rec.disposables
+  // so chunk unload doesn't double-dispose. Shared figure materials + the gem
+  // material are deliberately absent here.
+  const own = [];
+  if (mesh.userData.geo) own.push(mesh.userData.geo);
+  if (mesh.userData.auraMat) own.push(mesh.userData.auraMat);
+  if (mesh.userData.hb) own.push(mesh.userData.hb.mat, mesh.userData.hb.tex);
+  if (mesh.userData.labelMat) own.push(mesh.userData.labelMat);
+  mesh.userData.ownDisposables = own;
   return mesh;
+}
+
+// Compose a TRS matrix (rotation around Z only, for laid-down cylinders).
+function trs(x, y, z, sx, sy, sz, rotZ) {
+  const m = new THREE.Matrix4();
+  if (rotZ) {
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, rotZ));
+    m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(sx, sy, sz));
+  } else {
+    m.makeScale(sx, sy, sz);
+    m.setPosition(x, y, z);
+  }
+  return m;
+}
+// Build one InstancedMesh from a list of matrices (shared geo+mat). The mesh's
+// instance buffers are the only per-chunk allocation, freed on unload.
+function instanceFrom(group, rec, geo, mat, matrices) {
+  if (!matrices.length) return;
+  const inst = new THREE.InstancedMesh(geo, mat, matrices.length);
+  for (let i = 0; i < matrices.length; i++) inst.setMatrixAt(i, matrices[i]);
+  inst.instanceMatrix.needsUpdate = true;
+  inst.frustumCulled = false;
+  group.add(inst);
+  rec.disposables.push(inst);
+}
+
+// De-blockify a chunk: rooftop water tanks + antennae, plus street lamps and
+// trees placed deterministically so streaming is stable. All reuse shared
+// geometry + the persistent propMats, so nothing here leaks.
+function addChunkDetail(group, rec, data, cx, cz) {
+  const origin = data.origin;
+  const cell = CHUNK_SIZE / 4;
+
+  // rooftop detail
+  const tanks = [];
+  const ants = [];
+  for (let i = 0; i < data.buildings.length; i++) {
+    const b = data.buildings[i];
+    const h = strHash(cx + ':' + cz + ':roof:' + i);
+    const cxp = b.x + b.w / 2;
+    const czp = b.z + b.d / 2;
+    if (h % 3 === 0) {
+      const r = Math.max(2, Math.min(b.w, b.d) * 0.22);
+      tanks.push(trs(cxp, b.h + 2.2, czp, r * 2, 4.4, r * 2));
+    } else if (h % 3 === 1) {
+      ants.push(trs(cxp + b.w * 0.22, b.h + 6, czp - b.d * 0.22, 0.4, 12, 0.4));
+    }
+  }
+  instanceFrom(group, rec, cylGeo, propMats.tank, tanks);
+  instanceFrom(group, rec, boxGeo, propMats.antenna, ants);
+
+  // street lamps at road intersections
+  const posts = [];
+  const glows = [];
+  for (let gz = 1; gz < 4; gz++) {
+    for (let gx = 1; gx < 4; gx++) {
+      const h = strHash(cx + ':' + cz + ':lamp:' + gx + ',' + gz);
+      if (h % 5 < 3) {
+        const x = origin.x + gx * cell;
+        const z = origin.z + gz * cell;
+        posts.push(trs(x, 6, z, 0.6, 12, 0.6));
+        glows.push(trs(x, 12.4, z, 1.7, 1.7, 1.7));
+      }
+    }
+  }
+  instanceFrom(group, rec, cylGeo, propMats.lampPost, posts);
+  instanceFrom(group, rec, sphGeo, propMats.lampGlow, glows);
+
+  // a few trees along the sidewalks
+  const trunks = [];
+  const leaves = [];
+  for (let t = 0; t < 5; t++) {
+    const h = strHash(cx + ':' + cz + ':tree:' + t);
+    if (h % 3 === 0) continue;
+    const x = origin.x + ((h % 1000) / 1000) * CHUNK_SIZE;
+    const z = origin.z + (((h >> 10) % 1000) / 1000) * CHUNK_SIZE;
+    trunks.push(trs(x, 3, z, 1.0, 6, 1.0));
+    leaves.push(trs(x, 9, z, 6, 8, 6));
+  }
+  instanceFrom(group, rec, cylGeo, propMats.trunk, trunks);
+  instanceFrom(group, rec, coneGeo, propMats.foliage, leaves);
 }
 
 function loadChunk(cx, cz) {
@@ -476,13 +1192,20 @@ function loadChunk(cx, cz) {
   group.add(inst);
   rec.disposables.push(inst);
 
+  // rooftop detail + street props (instanced, shared geo/mats -> leak-free).
+  addChunkDetail(group, rec, data, cx, cz);
+
   // entities
   for (const e of data.entities) {
     const er = { data: e };
     er.mesh = buildEntityMesh(e, rec);
     group.add(er.mesh);
     if (e.type === 'collectible') er.baseY = e.y || 12;
-    if (e.type === 'villain' || e.type === 'robbery') er.hitCd = 0;
+    if (e.type === 'villain' || e.type === 'robbery') {
+      er.hitCd = 0;
+      er.hb = er.mesh.userData.hb || null;
+      er.bob = strHash(e.id) % 100; // phase offset for idle bob
+    }
     rec.entities.push(er);
   }
 
@@ -500,9 +1223,13 @@ function unloadChunk(k) {
 
 function updateStreaming() {
   const pc = core.chunkCoordForPos(player.state.pos.x, player.state.pos.z);
-  const want = new Set(core.visibleChunks(pc.cx, pc.cz, LOAD_RADIUS).map((c) => key(c.cx, c.cz)));
+  // Compute the visible chunk list ONCE per frame and reuse it for both the
+  // unload-diff and the load pass (was computing it twice + an extra map/Set).
+  const visible = core.visibleChunks(pc.cx, pc.cz, LOAD_RADIUS);
+  const want = new Set();
+  for (const c of visible) want.add(key(c.cx, c.cz));
   for (const k of chunks.keys()) if (!want.has(k)) unloadChunk(k);
-  for (const c of core.visibleChunks(pc.cx, pc.cz, LOAD_RADIUS)) loadChunk(c.cx, c.cz);
+  for (const c of visible) loadChunk(c.cx, c.cz);
 }
 
 // All loaded entities of given types (with live x/z) for combat queries.
@@ -536,12 +1263,25 @@ function defeatEntity(er) {
   const e = er.data;
   completed.add(e.id);
   spawnParticles(er.mesh.position, e.type === 'robbery' ? 0xffd166 : 0xff5252);
-  // remove from its chunk
+  // remove from its chunk and free this entity's per-entity GPU resources NOW
+  // (merged geometry, health-bar texture/material, aura + label materials).
+  // Shared figure/gem materials are NOT in ownDisposables, so they survive. We
+  // splice the freed items out of rec.disposables so chunk unload doesn't
+  // double-dispose them.
   for (const rec of chunks.values()) {
     const i = rec.entities.indexOf(er);
     if (i >= 0) {
       rec.entities.splice(i, 1);
       rec.group.remove(er.mesh);
+      const own = er.mesh.userData.ownDisposables;
+      if (own) {
+        for (const d of own) {
+          const di = rec.disposables.indexOf(d);
+          if (di >= 0) rec.disposables.splice(di, 1);
+          if (d && d.dispose) d.dispose();
+        }
+        er.mesh.userData.ownDisposables = null;
+      }
       break;
     }
   }
@@ -556,6 +1296,47 @@ function defeatEntity(er) {
   missionEvent('defeat');
 }
 
+// Apply a hit to a villain/robbery: damage scaled by the SELECTED hero's
+// attackDamage (core rebalanced this — never hardcode), then either defeat it or
+// give impactful feedback (knockback away from the source + squash + health-bar
+// redraw/pop). Returns true when the entity was defeated.
+function hitEntity(er, fromX, fromZ) {
+  const e = er.data;
+  const dmg = (hero && hero.attackDamage) || ATTACK_DAMAGE;
+  if (core.applyDamage(e, dmg)) {
+    defeatEntity(er);
+    return true;
+  }
+  // knockback (tougher tiers resist), squash, and update the health bar
+  const dx = e.x - fromX;
+  const dz = e.z - fromZ;
+  const len = Math.hypot(dx, dz) || 1;
+  const kb = e.tier === 'elite' ? 1.6 : e.tier === 'tough' ? 3.2 : 5.2;
+  e.x += (dx / len) * kb;
+  e.z += (dz / len) * kb;
+  er.mesh.position.x = e.x;
+  er.mesh.position.z = e.z;
+  bump(er.mesh);
+  if (er.hb && e.maxHp) {
+    drawHealthBar(er.hb, Math.max(0, e.hp) / e.maxHp);
+    hbPop(er.hb);
+  }
+  return false;
+}
+
+function hbPop(hb) {
+  if (hb._pop) return;
+  const s = hb.sprite.scale;
+  hb._pop = { x: s.x, y: s.y };
+  s.set(s.x * 1.28, s.y * 1.28, 1);
+  setTimeout(() => {
+    if (hb._pop) {
+      s.set(hb._pop.x, hb._pop.y, 1);
+      hb._pop = null;
+    }
+  }, 110);
+}
+
 function attack() {
   const fwd = forwardVec(player.state.yaw);
   const px = player.state.pos.x;
@@ -567,10 +1348,7 @@ function attack() {
     const hits = core.meleeHits(attacker, targets.map((t) => t.data), MELEE_RANGE, MELEE_ARC);
     const hitIds = new Set(hits.map((h) => h.id));
     for (const er of targets) {
-      if (hitIds.has(er.data.id)) {
-        if (core.applyDamage(er.data, ATTACK_DAMAGE)) defeatEntity(er);
-        else bump(er.mesh);
-      }
+      if (hitIds.has(er.data.id)) hitEntity(er, px, pz);
     }
   } else {
     const mat = new THREE.MeshBasicMaterial({ color: hero.color });
@@ -617,8 +1395,7 @@ function updateProjectiles(dt) {
     for (const er of villains) {
       if (completed.has(er.data.id)) continue; // already defeated this frame
       if (dist2(pr.p.pos.x, pr.p.pos.z, er.data.x, er.data.z) < PROJECTILE_HIT_R) {
-        if (core.applyDamage(er.data, ATTACK_DAMAGE)) defeatEntity(er);
-        else bump(er.mesh);
+        hitEntity(er, pr.p.pos.x, pr.p.pos.z);
         hit = true;
         break;
       }
@@ -688,6 +1465,8 @@ function updateEntities(dt) {
           er.hitCd = VILLAIN_HIT_COOLDOWN;
           damagePlayer(VILLAIN_DAMAGE);
         }
+        // menacing idle bob
+        er.mesh.position.y = (e.y || 0) + Math.sin(elapsed * 3 + (er.bob || 0)) * 0.5;
       } else if (e.type === 'collectible') {
         er.mesh.rotation.y += dt * 1.6;
         er.mesh.position.y = (er.baseY || 12) + Math.sin(elapsed * 2 + e.x) * 1.6;
@@ -825,7 +1604,12 @@ function updateRegion() {
     scene.background.set(sk.sky);
     scene.fog.color.set(sk.fog);
     sun.color.set(sk.sun);
-    ambient.color.set(sk.amb);
+    hemi.color.set(sk.sky);
+    hemi.groundColor.set(sk.ground);
+    if (skyDome) {
+      skyDome.material.uniforms.topColor.value.set(sk.sky);
+      skyDome.material.uniforms.bottomColor.value.set(sk.fog);
+    }
     if (!first) {
       toast('🗺 New area: ' + region.cityName + ', ' + region.countryName);
       missionEvent('travel');
@@ -847,6 +1631,8 @@ function update(dt) {
   const ps = player.state.pos;
   player.group.position.set(ps.x, ps.y, ps.z);
   player.group.rotation.y = Math.atan2(forwardVec(player.state.yaw).x, forwardVec(player.state.yaw).z);
+
+  animatePlayer(dt);
 
   // swing web visual
   if (player.state.swing) {
@@ -887,8 +1673,56 @@ function update(dt) {
   sun.target.position.set(ps.x, 0, ps.z);
   sun.target.updateMatrixWorld();
 
+  // sky dome rides with the camera so the gradient always surrounds the view
+  if (skyDome) skyDome.position.copy(camera.position);
+
   updateHud();
   pressed.clear();
+}
+
+// Limb swing while moving, idle bob at rest, and a movement-mode lean. Keeps the
+// player feeling alive without touching the core physics.
+function animatePlayer(dt) {
+  const limbs = player.limbs;
+  if (!limbs) return;
+  const v = player.state.vel;
+  const speed = Math.hypot(v.x || 0, v.z || 0);
+  const moving = speed > 0.5;
+  player.walkPhase += dt * (4 + speed * 0.18);
+  const swing = moving ? Math.sin(player.walkPhase) * Math.min(0.9, 0.25 + speed * 0.02) : 0;
+
+  if (hero.movement === 'bike') {
+    // legs stay tucked on the bike; just let the arms steer subtly
+    limbs.armL.rotation.x = -0.5 + swing * 0.1;
+    limbs.armR.rotation.x = -0.5 - swing * 0.1;
+  } else {
+    limbs.armL.rotation.x = swing;
+    limbs.armR.rotation.x = -swing;
+    limbs.legL.rotation.x = -swing;
+    limbs.legR.rotation.x = swing;
+  }
+
+  // idle bob (only when essentially still and grounded)
+  const bob = !moving ? Math.sin(elapsed * 2.2) * 0.25 : 0;
+  player.group.position.y = player.state.pos.y + bob;
+
+  // movement-mode lean: flyers + swinger pitch forward into travel, bike leans in
+  let lean = 0;
+  if (player.state.swing) lean = 0.5;
+  else if (hero.movement === 'fly' && moving) lean = 0.3;
+  else if (hero.movement === 'bike' && moving) lean = 0.22;
+  else if (moving) lean = 0.12;
+  player.group.rotation.x = lean;
+
+  // contact shadow under the player: fade + shrink with altitude
+  if (player.shadow) {
+    const h = Math.max(0, player.state.pos.y);
+    const k = Math.max(0.25, 1 - h / 80);
+    player.shadow.position.set(player.state.pos.x, 0.06, player.state.pos.z);
+    const sc = 5 * (player.group.userData.heroScale || 1) * k;
+    player.shadow.scale.set(sc, sc, sc);
+    player.shadowMat.opacity = 0.32 * k;
+  }
 }
 
 function frame(now) {
@@ -948,11 +1782,14 @@ function clearWorld() {
   if (player) {
     scene.remove(player.group);
     scene.remove(player.web);
+    if (player.shadow) scene.remove(player.shadow);
     (player.group.userData.mats || []).forEach((m) => m.dispose && m.dispose());
-    // The swing web's line material + geometry and the hero name/emoji label's
-    // sprite material aren't in userData.mats — dispose them explicitly.
+    // The swing web's line material + geometry, the blob-shadow material and the
+    // hero name/emoji label's sprite material aren't in userData.mats — dispose
+    // them explicitly.
     if (player.web && player.web.material && player.web.material.dispose) player.web.material.dispose();
     if (player.webGeo && player.webGeo.dispose) player.webGeo.dispose();
+    if (player.shadowMat && player.shadowMat.dispose) player.shadowMat.dispose();
     if (player.label && player.label.material && player.label.material.dispose) player.label.material.dispose();
     player = null;
   }
@@ -992,6 +1829,7 @@ function onView(view) {
   if (view === 'game') {
     if (!ready) initRenderer();
     if (!ready) return; // WebGL unavailable
+    document.body.classList.add('mg-active'); // immersive, full-bleed layout
     resize();
     if (!started) {
       showSelect();
@@ -1001,6 +1839,7 @@ function onView(view) {
       startLoop();
     }
   } else {
+    document.body.classList.remove('mg-active');
     stopLoop();
   }
 }

@@ -93,6 +93,7 @@ export const HEROES = [
     color: '#e62429',
     movement: 'swing',
     attackType: 'melee',
+    attackDamage: 26,
     stats: { maxHp: 100, speed: 18, jump: 22 },
     desc: 'Swings between rooftops on webs and hits up close.',
   },
@@ -103,6 +104,7 @@ export const HEROES = [
     color: '#f5b700',
     movement: 'fly',
     attackType: 'projectile',
+    attackDamage: 30,
     stats: { maxHp: 120, speed: 24, jump: 16 },
     desc: 'Flies freely in 3D and fires repulsor beams from range.',
   },
@@ -113,6 +115,7 @@ export const HEROES = [
     color: '#5aa02c',
     movement: 'jump',
     attackType: 'melee',
+    attackDamage: 42,
     stats: { maxHp: 220, speed: 16, jump: 40 },
     desc: 'Leaps enormous distances and smashes everything nearby.',
   },
@@ -123,6 +126,7 @@ export const HEROES = [
     color: '#ff7a00',
     movement: 'bike',
     attackType: 'melee',
+    attackDamage: 32,
     stats: { maxHp: 140, speed: 42, jump: 12 },
     desc: 'Rides a hellfire bike at blazing speed, chain in hand.',
   },
@@ -133,6 +137,7 @@ export const HEROES = [
     color: '#2a4b9b',
     movement: 'run',
     attackType: 'projectile',
+    attackDamage: 28,
     stats: { maxHp: 130, speed: 22, jump: 20 },
     desc: 'Sprints, double-jumps and hurls his shield.',
   },
@@ -143,6 +148,7 @@ export const HEROES = [
     color: '#8a6dff',
     movement: 'fly',
     attackType: 'projectile',
+    attackDamage: 38,
     stats: { maxHp: 160, speed: 26, jump: 14 },
     desc: 'Soars through the sky and throws Mjolnir.',
   },
@@ -442,6 +448,27 @@ const PALETTES = [
   ['#2a2a2a', '#454545', '#636363', '#858585'],
 ];
 
+// Villain tiering. Maps an rng draw r in [0,1) to a tier + max HP so that
+// villains take several hits to kill (no one/two-shots). Elite is rarest.
+// Render + combat layers read entity.hp / entity.maxHp / entity.tier.
+const VILLAIN_TIERS = {
+  grunt: 150,
+  tough: 260,
+  elite: 400,
+};
+
+export function villainTier(r) {
+  if (r < 0.6) return { tier: 'grunt', maxHp: VILLAIN_TIERS.grunt };
+  if (r < 0.9) return { tier: 'tough', maxHp: VILLAIN_TIERS.tough };
+  return { tier: 'elite', maxHp: VILLAIN_TIERS.elite };
+}
+
+// A robbery is always a heavier villain: at least 'tough'.
+function robberyTier(r) {
+  if (r < 0.7) return { tier: 'tough', maxHp: 300 };
+  return { tier: 'elite', maxHp: VILLAIN_TIERS.elite };
+}
+
 export function generateChunk(cx, cz, data, completed) {
   const done = completed instanceof Set ? completed : new Set(completed || []);
   const region = regionForChunk(cx, cz, data);
@@ -504,7 +531,10 @@ export function generateChunk(cx, cz, data, completed) {
 
   const villainN = 2 + Math.floor(rng() * 3); // 2..4
   for (let k = 0; k < villainN; k++) {
-    add('villain', k, (r) => ({ y: GROUND_Y, hp: 30 + Math.floor(r() * 50) }));
+    add('villain', k, (r) => {
+      const { tier, maxHp } = villainTier(r()); // one rng draw -> stream-stable
+      return { y: GROUND_Y, hp: maxHp, maxHp, tier };
+    });
   }
   const civilianN = 2 + Math.floor(rng() * 3); // 2..4
   for (let k = 0; k < civilianN; k++) {
@@ -512,7 +542,10 @@ export function generateChunk(cx, cz, data, completed) {
   }
   const robberyN = 1 + Math.floor(rng() * 2); // 1..2
   for (let k = 0; k < robberyN; k++) {
-    add('robbery', k, (r) => ({ y: GROUND_Y, hp: 40 + Math.floor(r() * 40) }));
+    add('robbery', k, (r) => {
+      const { tier, maxHp } = robberyTier(r()); // one rng draw -> stream-stable
+      return { y: GROUND_Y, hp: maxHp, maxHp, tier };
+    });
   }
   const collectibleN = 2 + Math.floor(rng() * 3); // 2..4
   for (let k = 0; k < collectibleN; k++) {

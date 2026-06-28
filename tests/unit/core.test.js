@@ -17,6 +17,7 @@ import {
   chunkCoordForPos,
   visibleChunks,
   generateChunk,
+  villainTier,
 } from '../../public/game/core.js';
 
 // Deterministic stub data — do NOT depend on public/game-data.js
@@ -204,6 +205,54 @@ describe('HEROES', () => {
     const first = HEROES[0];
     expect(getHero(first.id)).toBe(first);
     expect(getHero('no-such-hero')).toBeUndefined();
+  });
+  it('every hero has a positive numeric attackDamage', () => {
+    for (const h of HEROES) {
+      expect(typeof h.attackDamage).toBe('number');
+      expect(Number.isFinite(h.attackDamage)).toBe(true);
+      expect(h.attackDamage).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// combat balance — villains must survive several hits
+// ---------------------------------------------------------------------------
+
+describe('villainTier', () => {
+  it('returns a valid tier and maxHp within expected bounds', () => {
+    const tiers = new Set();
+    for (let i = 0; i < 1000; i++) {
+      const { tier, maxHp } = villainTier(i / 1000);
+      expect(['grunt', 'tough', 'elite']).toContain(tier);
+      expect(maxHp).toBeGreaterThan(0);
+      tiers.add(tier);
+    }
+    // all three tiers reachable across [0,1)
+    expect(tiers.has('grunt')).toBe(true);
+    expect(tiers.has('tough')).toBe(true);
+    expect(tiers.has('elite')).toBe(true);
+  });
+  it('elite hp > tough hp > grunt hp', () => {
+    // sample each tier's hp by scanning the range
+    const hpByTier = {};
+    for (let i = 0; i < 1000; i++) {
+      const { tier, maxHp } = villainTier(i / 1000);
+      hpByTier[tier] = maxHp;
+    }
+    expect(hpByTier.elite).toBeGreaterThan(hpByTier.tough);
+    expect(hpByTier.tough).toBeGreaterThan(hpByTier.grunt);
+  });
+  it('no hero can one-shot or two-shot the weakest (grunt) villain', () => {
+    // find the grunt (lowest) maxHp from the tier function
+    let minVillainMaxHp = Infinity;
+    for (let i = 0; i < 1000; i++) {
+      minVillainMaxHp = Math.min(minVillainMaxHp, villainTier(i / 1000).maxHp);
+    }
+    for (const h of HEROES) {
+      const hits = Math.ceil(minVillainMaxHp / h.attackDamage);
+      expect(hits).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 
@@ -567,6 +616,44 @@ describe('generateChunk', () => {
         expect(e.y).toBe(CONFIG.GROUND_Y);
       }
     }
+  });
+  it('villain/robbery entities spawn at full hp with a valid tier', () => {
+    let minGruntHp = Infinity;
+    for (let i = 0; i < 1000; i++) {
+      minGruntHp = Math.min(minGruntHp, villainTier(i / 1000).maxHp);
+    }
+    // tough lower bound = the smallest hp produced by a 'tough' tier
+    let minToughHp = Infinity;
+    for (let i = 0; i < 1000; i++) {
+      const t = villainTier(i / 1000);
+      if (t.tier === 'tough') minToughHp = Math.min(minToughHp, t.maxHp);
+    }
+    for (const [cx, cz] of [[0, 0], [3, -2], [-5, 4], [7, 7]]) {
+      const c = generateChunk(cx, cz, data, new Set());
+      for (const e of c.entities) {
+        if (e.type === 'villain' || e.type === 'robbery') {
+          expect(e.maxHp).toBeGreaterThan(0);
+          expect(e.hp).toBe(e.maxHp);
+          expect(['grunt', 'tough', 'elite']).toContain(e.tier);
+          if (e.type === 'robbery') {
+            expect(e.maxHp).toBeGreaterThanOrEqual(minToughHp);
+            expect(['tough', 'elite']).toContain(e.tier);
+          }
+        }
+      }
+    }
+  });
+  it('villain maxHp varies across chunks (tiers actually differ)', () => {
+    const seen = new Set();
+    for (let cx = 0; cx < 12; cx++) {
+      for (let cz = 0; cz < 12; cz++) {
+        const c = generateChunk(cx, cz, data, new Set());
+        for (const e of c.entities) {
+          if (e.type === 'villain') seen.add(e.maxHp);
+        }
+      }
+    }
+    expect(seen.size).toBeGreaterThan(1);
   });
   it('completed-set omission does not shift other entities', () => {
     const c0 = generateChunk(4, 1, data, new Set());

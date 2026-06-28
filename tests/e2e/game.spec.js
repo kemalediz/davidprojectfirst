@@ -84,6 +84,64 @@ test('movement keys move the player and throw no errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('fullscreen toggle button exists, is clickable, and throws no errors', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/');
+  await page.click('.nav-tab[data-view="game"]');
+  await page.click('.mg-hero-card[data-hero-id="spider-man"]');
+  await page.waitForFunction(
+    () => window.MarvelGame && window.MarvelGame.getState().started === true,
+    null,
+    { timeout: 20_000 }
+  );
+
+  // The control is present and visible in the HUD.
+  const btn = page.locator('.mg-fullscreen-btn');
+  await expect(btn).toBeVisible();
+
+  // Headless can't actually grant OS fullscreen, so stand in for the Fullscreen
+  // API: record that it was called and emulate document.fullscreenElement
+  // flipping, so we can assert the click really drove the API (catches a wiring
+  // regression — a silent no-op stub couldn't).
+  await page.evaluate(() => {
+    window.__fsCalled = { req: 0, exit: 0 };
+    const root = document.getElementById('view-game');
+    let fsEl = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fsEl,
+    });
+    if (root) {
+      root.requestFullscreen = () => {
+        window.__fsCalled.req++;
+        fsEl = root;
+        return Promise.resolve();
+      };
+    }
+    document.exitFullscreen = () => {
+      window.__fsCalled.exit++;
+      fsEl = null;
+      return Promise.resolve();
+    };
+  });
+
+  // First click: enters fullscreen via requestFullscreen.
+  await btn.click();
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => window.__fsCalled.req)).toBe(1);
+  expect(await page.evaluate(() => window.__fsCalled.exit)).toBe(0);
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+
+  // Second click: now in fullscreen, so it must exit via exitFullscreen.
+  await btn.click();
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => window.__fsCalled.req)).toBe(1);
+  expect(await page.evaluate(() => window.__fsCalled.exit)).toBe(1);
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+
+  expect(errors).toEqual([]);
+});
+
 test('switching nav tabs pauses and resumes the loop without errors', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/');
