@@ -23,7 +23,15 @@
         </div>
       </div>
       <p class="tagline">The wiki of Marvel characters &mdash; origins, films, actors, powers &amp; stories</p>
-      <div class="controls">
+
+      <nav class="primary-nav" id="primary-nav" aria-label="Primary sections">
+        <button type="button" class="nav-tab active" data-view="characters">Characters</button>
+        <button type="button" class="nav-tab" data-view="creation">Creation</button>
+        <button type="button" class="nav-tab" data-view="films">Films</button>
+        <button type="button" class="nav-tab" data-view="game">Play</button>
+      </nav>
+
+      <div class="controls" id="char-controls">
         <div class="search-wrap">
           <input
             id="search"
@@ -46,11 +54,38 @@
   <nav class="filters" id="filters" aria-label="Filter by category"></nav>
 
   <main class="container">
-    <p id="notice" class="notice" hidden></p>
-    <p id="result-count" class="result-count" aria-live="polite"></p>
-    <section id="grid" class="grid" aria-label="Character list"></section>
-    <p id="empty" class="empty" hidden>No characters match your search.</p>
-    <div id="data-message" class="data-message" hidden></div>
+    <!-- ===== Characters view ===== -->
+    <section id="view-characters" class="view">
+      <p id="notice" class="notice" hidden></p>
+      <p id="result-count" class="result-count" aria-live="polite"></p>
+      <section id="grid" class="grid" aria-label="Character list"></section>
+      <p id="empty" class="empty" hidden>No characters match your search.</p>
+      <div id="data-message" class="data-message" hidden></div>
+    </section>
+
+    <!-- ===== Creation view (the history of Marvel) ===== -->
+    <section id="view-creation" class="view article" hidden aria-label="The creation of Marvel">
+      <header class="article-head">
+        <h1>The Creation of Marvel</h1>
+        <p class="article-lede">From a pulp publisher in 1939 to the largest shared
+          universe in entertainment — how Marvel was built, decade by decade.</p>
+      </header>
+      <div id="creation-body" class="article-body"></div>
+    </section>
+
+    <!-- ===== Films view ===== -->
+    <section id="view-films" class="view" hidden aria-label="Marvel films">
+      <header class="article-head">
+        <h1>Marvel Films</h1>
+        <p class="article-lede">The Marvel Cinematic Universe and the landmark films
+          that paved the way — with cast, synopsis and trivia for each.</p>
+      </header>
+      <div class="films-toolbar" id="films-toolbar"></div>
+      <div id="films-body" class="films-grid"></div>
+    </section>
+
+    <!-- ===== Play view (open-world 3D game; populated by game/render.js) ===== -->
+    <section id="view-game" class="view" hidden aria-label="Open-world superhero game"></section>
   </main>
 
   <footer class="site-footer">
@@ -80,6 +115,7 @@
         <span class="brand-mark">MARVEL</span><span class="brand-sub">pedia</span>
       </div>
       <p id="login-title" class="auth-tagline">Sign in to save your favourite characters</p>
+      <p id="auth-mode-note" class="auth-mode-note" hidden></p>
 
       <button id="google-btn" type="button" class="google-btn">
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -125,7 +161,23 @@
   <!-- Bundled dataset (window.MARVEL_CHARACTERS): used to seed Firestore and as
        an offline fallback so the wiki works even before Firebase is configured. -->
   <script src="data.js"></script>
+  <!-- Creation history + films content (window.MARVEL_CREATION / window.MARVEL_FILMS) -->
+  <script src="content.js"></script>
   <!-- auth.js wires up optional login; app.js loads the public wiki + favourites -->
   <script type="module" src="auth.js"></script>
+
+  <!-- ===== Open-world game (Play view) ===== -->
+  <!-- Flavour content for the procedural world (countries, cities, villains…). -->
+  <script src="game-data.js"></script>
+  <!-- three.js via CDN import-map — MUST come before any module that imports 'three'. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <!-- The 3D render/gameplay layer (imports three + game/core.js). -->
+  <script type="module" src="game/render.js"></script>
 </body>
 </html>

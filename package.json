@@ -7,6 +7,14 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "python3 backend.py",
-    "serve": "python3 backend.py"
+    "serve": "python3 backend.py",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "vitest": "latest"
   }
 }
