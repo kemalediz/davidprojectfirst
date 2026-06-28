@@ -99,16 +99,46 @@ test('fullscreen toggle button exists, is clickable, and throws no errors', asyn
   const btn = page.locator('.mg-fullscreen-btn');
   await expect(btn).toBeVisible();
 
-  // Headless can't actually grant OS fullscreen, so neutralise the API to a
-  // resolved no-op; we only assert the click handler runs cleanly.
+  // Headless can't actually grant OS fullscreen, so stand in for the Fullscreen
+  // API: record that it was called and emulate document.fullscreenElement
+  // flipping, so we can assert the click really drove the API (catches a wiring
+  // regression — a silent no-op stub couldn't).
   await page.evaluate(() => {
+    window.__fsCalled = { req: 0, exit: 0 };
     const root = document.getElementById('view-game');
-    if (root) root.requestFullscreen = () => Promise.resolve();
-    document.exitFullscreen = () => Promise.resolve();
+    let fsEl = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fsEl,
+    });
+    if (root) {
+      root.requestFullscreen = () => {
+        window.__fsCalled.req++;
+        fsEl = root;
+        return Promise.resolve();
+      };
+    }
+    document.exitFullscreen = () => {
+      window.__fsCalled.exit++;
+      fsEl = null;
+      return Promise.resolve();
+    };
   });
 
+  // First click: enters fullscreen via requestFullscreen.
   await btn.click();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => window.__fsCalled.req)).toBe(1);
+  expect(await page.evaluate(() => window.__fsCalled.exit)).toBe(0);
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+
+  // Second click: now in fullscreen, so it must exit via exitFullscreen.
+  await btn.click();
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => window.__fsCalled.req)).toBe(1);
+  expect(await page.evaluate(() => window.__fsCalled.exit)).toBe(1);
+  expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+
   expect(errors).toEqual([]);
 });
 

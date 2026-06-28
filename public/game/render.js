@@ -13,6 +13,11 @@
 //   pass yaw+PI to meleeHits so its arc lines up with travel direction.
 
 import * as THREE from 'three';
+// mergeGeometries lives in three's addons. The site's importmap only maps the
+// bare "three" specifier (and we must not edit index.html here), so we pull the
+// addon straight from the same pinned CDN build — it `import`s from bare "three"
+// internally, which still resolves through the importmap.
+import { mergeGeometries } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js';
 import * as core from './core.js';
 
 const DATA = (typeof window !== 'undefined' && window.MARVEL_GAME_DATA) || {};
@@ -85,11 +90,16 @@ let clickAttackQueued = false;
 // and per-hero meshes only ever reference these, so chunk-unload / hero-change
 // disposes the small per-instance stuff (InstancedMesh buffers, themed materials)
 // and never these shared singletons.
-let boxGeo, gemGeo, planeGeo, partGeo, buildingMat;
+let boxGeo, gemGeo, planeGeo, partGeo, buildingMat, gemMat;
 let cylGeo, sphGeo, coneGeo, circleGeo; // for de-blockified detail + humanoids
 let propMats = null; // { lampPost, lampGlow, trunk, foliage, tank, antenna }
 const groundMats = []; // by palette index (textured roads/sidewalks)
 const spriteTexCache = new Map();
+// Shared humanoid materials for WORLD entities (villains / civilians / npcs),
+// keyed by appearance (type+tier). Created once, reused across every entity and
+// every chunk, and (like boxGeo / buildingMat) live for the whole session —
+// only the per-entity *merged geometry* is allocated/disposed per entity.
+const figureMatCache = new Map();
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -175,8 +185,10 @@ function makeSprite(text, opts, height) {
 }
 
 // A per-entity health bar. Unlike labels these are dynamic (redrawn on every
-// hit), so each gets its own canvas/texture/material — all three are pushed to
-// the chunk's disposables and freed on unload / defeat.
+// hit), so each gets its own canvas/texture/material. The texture + material are
+// per-entity GPU resources: they're freed when the entity is defeated (see
+// defeatEntity) or when its chunk unloads, whichever comes first. The canvas is
+// plain DOM and is garbage-collected once unreferenced.
 function makeHealthBar(width, tierColor) {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -513,6 +525,9 @@ function initRenderer() {
       groundMats.push(new THREE.MeshLambertMaterial({ map: makeGroundTexture(i) }));
     }
 
+    // single shared collectible-gem material (one per session, not per gem)
+    gemMat = new THREE.MeshLambertMaterial({ color: 0xffe066, emissive: 0x665200 });
+
     // shared prop materials (street furniture / greenery), reused by every chunk
     propMats = {
       lampPost: new THREE.MeshLambertMaterial({ color: 0x30343c }),
@@ -657,6 +672,99 @@ function buildHumanoid(opts) {
 // torso so the villain tint in buildEntityMesh keeps working.
 function makeFigure(color, scale) {
   return buildHumanoid({ scale: scale || 1, torso: color, limb: color, legs: 0x2b2b34, skin: 0xf1c9a5 });
+}
+
+// ---------------------------------------------------------------------------
+// Merged world-entity figures (PERF). The player is an articulated Group (limb
+// animation), but villains / civilians / npcs never animate their limbs — so we
+// bake the ~13 humanoid parts into ONE merged BufferGeometry per entity, grouped
+// by material. A merged Mesh with a material array renders one draw call per
+// distinct material (3 for plain figures, 4 for tinted villains) instead of one
+// per part — i.e. ~13 → ~3 draw calls per entity.
+//
+// Materials are SHARED across every entity via figureMatCache, keyed by
+// appearance (type+tier). Only the merged geometry is per-entity: it's pushed to
+// the chunk's disposables (freed on unload) and to mesh.userData.ownDisposables
+// (freed early on defeat). Shared materials are never in those lists, so they
+// survive — created once, released only at teardown (like boxGeo / buildingMat).
+// ---------------------------------------------------------------------------
+const _figQ = new THREE.Quaternion(); // identity; parts are axis-aligned
+
+// Distinct materials for an appearance, in a stable colour order. `colors` has
+// { torso, arm, legs, skin }; duplicates collapse to one material.
+function sharedFigureMaterials(appearanceKey, colors) {
+  let entry = figureMatCache.get(appearanceKey);
+  if (entry) return entry;
+  const order = [];
+  for (const c of [colors.torso, colors.arm, colors.legs, colors.skin]) {
+    if (!order.includes(c)) order.push(c);
+  }
+  entry = { order, mats: order.map((c) => mkMat(c)) };
+  figureMatCache.set(appearanceKey, entry);
+  return entry;
+}
+
+// Build a single merged humanoid mesh wrapped in a Group (so the caller can add
+// the label / health-bar / aura as children and rotate/position the whole thing,
+// exactly like the old buildHumanoid Group). Layout mirrors buildHumanoid+
+// makeFigure (bulk W = 1, no per-limb rotation), so entities look identical.
+function buildMergedFigure(appearanceKey, colors, scale) {
+  const s = scale || 1;
+  const { order, mats } = sharedFigureMaterials(appearanceKey, colors);
+  const buckets = order.map(() => []);
+  const add = (geo, color, sx, sy, sz, px, py, pz) => {
+    const g = geo.clone();
+    g.applyMatrix4(
+      new THREE.Matrix4().compose(
+        new THREE.Vector3(px, py, pz),
+        _figQ,
+        new THREE.Vector3(sx, sy, sz)
+      )
+    );
+    buckets[order.indexOf(color)].push(g);
+  };
+
+  // torso + pelvis + neck + head (centre column)
+  add(boxGeo, colors.torso, 3.0 * s, 4.4 * s, 1.9 * s, 0, 6.6 * s, 0); // torso
+  add(boxGeo, colors.legs, 2.8 * s, 1.5 * s, 1.8 * s, 0, 4.3 * s, 0); // pelvis
+  add(cylGeo, colors.skin, 0.6 * s, 0.8 * s, 0.6 * s, 0, 8.9 * s, 0); // neck
+  add(boxGeo, colors.skin, 2.0 * s, 2.0 * s, 1.9 * s, 0, 9.9 * s, 0); // head
+  // arms (upper + forearm in arm colour, hand in skin)
+  for (const side of [-1, 1]) {
+    const ax = side * 2.1 * s; // (1.55*W + 0.55)*s, W = 1
+    add(cylGeo, colors.arm, 0.78 * s, 2.1 * s, 0.78 * s, ax, 7.15 * s, 0); // upper arm
+    add(cylGeo, colors.arm, 0.66 * s, 1.9 * s, 0.66 * s, ax, 5.15 * s, 0); // forearm
+    add(sphGeo, colors.skin, 0.95 * s, 0.95 * s, 0.95 * s, ax, 4.1 * s, 0); // hand
+  }
+  // legs (thigh + shin + foot, all in legs colour)
+  for (const side of [-1, 1]) {
+    const lx = side * 0.85 * s; // 0.85*W*s, W = 1
+    add(cylGeo, colors.legs, 0.95 * s, 2.1 * s, 0.95 * s, lx, 3.05 * s, 0); // thigh
+    add(cylGeo, colors.legs, 0.85 * s, 2.0 * s, 0.85 * s, lx, 1.05 * s, 0); // shin
+    add(boxGeo, colors.legs, 1.0 * s, 0.6 * s, 1.7 * s, lx, 0, 0.4 * s); // foot
+  }
+
+  // merge each colour bucket, then merge the buckets with groups so material
+  // index N maps to usedMats[N].
+  const perMat = [];
+  const usedMats = [];
+  for (let i = 0; i < buckets.length; i++) {
+    if (!buckets[i].length) continue;
+    const merged = mergeGeometries(buckets[i], false);
+    buckets[i].forEach((g) => g.dispose());
+    perMat.push(merged);
+    usedMats.push(mats[i]);
+  }
+  const finalGeo = mergeGeometries(perMat, true);
+  perMat.forEach((g) => g.dispose());
+
+  const inner = new THREE.Mesh(finalGeo, usedMats);
+  const group = new THREE.Group();
+  group.add(inner);
+  group.userData.geo = finalGeo; // the only per-entity GPU buffer
+  group.userData.mats = []; // materials are shared — never per-entity disposed
+  group.userData.heroScale = s;
+  return group;
 }
 
 // Per-hero recognisable looks, selected by core hero id.
@@ -888,10 +996,15 @@ function buildEntityMesh(e, rec) {
   let height = 0;
   if (e.type === 'villain' || e.type === 'robbery') {
     const tier = TIER_VIS[e.tier] || TIER_VIS.grunt;
-    mesh = makeFigure(e.type === 'robbery' ? 0x111111 : 0x3a0d0d, 1.1 * tier.scale);
-    // tint torso villain-red (robbers wear dark, elites a deep menace)
-    mesh.userData.mats[0].color.set(
-      e.type === 'robbery' ? 0x2b2b2b : e.tier === 'elite' ? 0x6e0d3a : 0x9b1c1c
+    // arms/legs keep the dark base; torso is tinted villain-red (robbers wear
+    // dark, elites a deep menace). Colours derive purely from type+tier, so the
+    // shared-material cache key (below) fully captures the look.
+    const armColor = e.type === 'robbery' ? 0x111111 : 0x3a0d0d;
+    const torsoColor = e.type === 'robbery' ? 0x2b2b2b : e.tier === 'elite' ? 0x6e0d3a : 0x9b1c1c;
+    mesh = buildMergedFigure(
+      'v:' + e.type + ':' + (e.tier || 'grunt'),
+      { torso: torsoColor, arm: armColor, legs: 0x2b2b34, skin: 0xf1c9a5 },
+      1.1 * tier.scale
     );
     labelText = (e.type === 'robbery' ? '💰 ' : '☠ ') + flavor.name + (e.tier === 'elite' ? ' ★' : '');
     labelOpts = { color: '#ff7676' };
@@ -911,6 +1024,7 @@ function buildEntityMesh(e, rec) {
       aura.position.y = 6 * tier.scale;
       mesh.add(aura);
       rec.disposables.push(auraMat);
+      mesh.userData.auraMat = auraMat; // per-entity, non-shared -> free on defeat
     }
 
     // billboard health bar above the head
@@ -920,35 +1034,50 @@ function buildEntityMesh(e, rec) {
     mesh.userData.hb = hb;
     rec.disposables.push(hb.mat, hb.tex);
   } else if (e.type === 'civilian') {
-    mesh = makeFigure(0x4f7fc4, 0.9);
+    mesh = buildMergedFigure('civilian', { torso: 0x4f7fc4, arm: 0x4f7fc4, legs: 0x2b2b34, skin: 0xf1c9a5 }, 0.9);
     labelText = '🆘 ' + flavor.name;
     labelOpts = { color: '#bcd4ff' };
     height = 11;
   } else if (e.type === 'npc') {
-    mesh = makeFigure(0xc9a227, 0.95);
+    mesh = buildMergedFigure('npc', { torso: 0xc9a227, arm: 0xc9a227, legs: 0x2b2b34, skin: 0xf1c9a5 }, 0.95);
     labelText = '❗ ' + flavor.name;
     labelOpts = { color: '#ffe79a' };
     height = 11;
   } else if (e.type === 'collectible') {
     mesh = new THREE.Group();
-    const gem = new THREE.Mesh(gemGeo, new THREE.MeshLambertMaterial({ color: 0xffe066, emissive: 0x665200 }));
+    // shared gem material (singleton) — only the (shared) gemGeo + this group are
+    // per-entity, neither needs disposing.
+    const gem = new THREE.Mesh(gemGeo, gemMat);
     mesh.add(gem);
-    mesh.userData.mats = [gem.material];
+    mesh.userData.mats = [];
     labelText = flavor.symbol || '💎';
     labelOpts = { bg: 'none', font: '60px "Segoe UI Emoji", sans-serif' };
     height = 6;
   } else {
-    mesh = makeFigure(0x888888, 0.9);
+    mesh = buildMergedFigure('default', { torso: 0x888888, arm: 0x888888, legs: 0x2b2b34, skin: 0xf1c9a5 }, 0.9);
   }
 
   if (labelText) {
     const label = makeSprite(labelText, labelOpts, height ? 4.5 : 4);
     label.position.y = e.type === 'collectible' ? 7 : Math.max(13, height + 5);
     mesh.add(label);
-    rec.disposables.push(label.material);
+    rec.disposables.push(label.material); // sprite material is per-entity (its texture is cached/shared)
+    mesh.userData.labelMat = label.material;
   }
   mesh.position.set(e.x, e.y || 0, e.z);
   (mesh.userData.mats || []).forEach((m) => rec.disposables.push(m));
+  if (mesh.userData.geo) rec.disposables.push(mesh.userData.geo); // per-entity merged geometry
+
+  // The subset of this entity's disposables that are PER-ENTITY (not shared from
+  // a cache) — freed early in defeatEntity, then spliced out of rec.disposables
+  // so chunk unload doesn't double-dispose. Shared figure materials + the gem
+  // material are deliberately absent here.
+  const own = [];
+  if (mesh.userData.geo) own.push(mesh.userData.geo);
+  if (mesh.userData.auraMat) own.push(mesh.userData.auraMat);
+  if (mesh.userData.hb) own.push(mesh.userData.hb.mat, mesh.userData.hb.tex);
+  if (mesh.userData.labelMat) own.push(mesh.userData.labelMat);
+  mesh.userData.ownDisposables = own;
   return mesh;
 }
 
@@ -1094,9 +1223,13 @@ function unloadChunk(k) {
 
 function updateStreaming() {
   const pc = core.chunkCoordForPos(player.state.pos.x, player.state.pos.z);
-  const want = new Set(core.visibleChunks(pc.cx, pc.cz, LOAD_RADIUS).map((c) => key(c.cx, c.cz)));
+  // Compute the visible chunk list ONCE per frame and reuse it for both the
+  // unload-diff and the load pass (was computing it twice + an extra map/Set).
+  const visible = core.visibleChunks(pc.cx, pc.cz, LOAD_RADIUS);
+  const want = new Set();
+  for (const c of visible) want.add(key(c.cx, c.cz));
   for (const k of chunks.keys()) if (!want.has(k)) unloadChunk(k);
-  for (const c of core.visibleChunks(pc.cx, pc.cz, LOAD_RADIUS)) loadChunk(c.cx, c.cz);
+  for (const c of visible) loadChunk(c.cx, c.cz);
 }
 
 // All loaded entities of given types (with live x/z) for combat queries.
@@ -1130,12 +1263,25 @@ function defeatEntity(er) {
   const e = er.data;
   completed.add(e.id);
   spawnParticles(er.mesh.position, e.type === 'robbery' ? 0xffd166 : 0xff5252);
-  // remove from its chunk
+  // remove from its chunk and free this entity's per-entity GPU resources NOW
+  // (merged geometry, health-bar texture/material, aura + label materials).
+  // Shared figure/gem materials are NOT in ownDisposables, so they survive. We
+  // splice the freed items out of rec.disposables so chunk unload doesn't
+  // double-dispose them.
   for (const rec of chunks.values()) {
     const i = rec.entities.indexOf(er);
     if (i >= 0) {
       rec.entities.splice(i, 1);
       rec.group.remove(er.mesh);
+      const own = er.mesh.userData.ownDisposables;
+      if (own) {
+        for (const d of own) {
+          const di = rec.disposables.indexOf(d);
+          if (di >= 0) rec.disposables.splice(di, 1);
+          if (d && d.dispose) d.dispose();
+        }
+        er.mesh.userData.ownDisposables = null;
+      }
       break;
     }
   }
