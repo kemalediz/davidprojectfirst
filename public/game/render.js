@@ -42,6 +42,12 @@ const PROJECTILE_LIFE = 1.3;
 const PROJECTILE_HIT_R = 9;
 const SCORE = { defeat: 100, robbery: 250, rescue: 75, collect: 50 };
 
+// Mouse-look: how much a pixel of pointer movement turns the camera, and the
+// (subtle) pitch clamp so the third-person follow never flips upside down.
+const LOOK_SENS = 0.0022;
+const PITCH_MIN = -0.42;
+const PITCH_MAX = 0.5;
+
 // Visual palettes, indexed by region.paletteIndex (0..5). sky/fog give the
 // "infinite" horizon; ground + sun tint the world per country.
 const SKY = [
@@ -69,6 +75,7 @@ let canvasWrap, hud, els; // DOM
 let hero = null; // chosen hero object from core.HEROES
 let player = null; // { state, group, web, hp }
 let camYaw = 0;
+let camPitch = 0; // mouse-look vertical aim (clamped, subtle)
 let score = 0;
 let villainsDefeated = 0;
 let collected = 0;
@@ -354,8 +361,16 @@ function buildDom() {
       <div class="mg-mission-prog"></div>
     </div>
     <div class="mg-toasts"></div>
+    <div class="mg-crosshair" hidden aria-hidden="true">
+      <span class="mg-cross-ring"></span>
+      <span class="mg-cross-dot"></span>
+      <i class="mg-cross-tick mg-cross-t"></i>
+      <i class="mg-cross-tick mg-cross-b"></i>
+      <i class="mg-cross-tick mg-cross-l"></i>
+      <i class="mg-cross-tick mg-cross-r"></i>
+    </div>
     <div class="mg-hint">
-      <b>Move</b> WASD · <b>Camera</b> ◀ ▶ · <b>Jump/Swing/Fly↑</b> Space · <b>Down</b> Shift · <b>Attack</b> J / Click · <b>Interact</b> E · <b>Pause</b> P
+      <b>Move</b> WASD · <b>Look/Aim</b> Mouse · <b>Camera</b> ◀ ▶ · <b>Jump/Swing/Fly↑</b> Space · <b>Down</b> Shift · <b>Attack</b> J / Click · <b>Interact</b> E · <b>Pause</b> P
     </div>
     <div class="mg-paused" hidden><div>Paused</div><small>press P to resume</small></div>`;
   view.appendChild(hud);
@@ -380,6 +395,7 @@ function buildDom() {
     missionText: hud.querySelector('.mg-mission-text'),
     missionProg: hud.querySelector('.mg-mission-prog'),
     toasts: hud.querySelector('.mg-toasts'),
+    crosshair: hud.querySelector('.mg-crosshair'),
     paused: hud.querySelector('.mg-paused'),
     select,
   };
@@ -453,6 +469,8 @@ function showSelect() {
   paused = true;
   if (els.paused) els.paused.hidden = true;
   els.select.hidden = false;
+  exitLook();
+  updateCrosshair();
 }
 
 // ---------------------------------------------------------------------------
@@ -538,9 +556,19 @@ function initRenderer() {
       antenna: new THREE.MeshLambertMaterial({ color: 0x52555c }),
     };
 
+    // Left-click both attacks AND (if not already locked) engages pointer lock
+    // for mouse-look — so the very click that grabs the pointer still lands a
+    // hit, and every subsequent click while locked keeps attacking.
     renderer.domElement.addEventListener('mousedown', (e) => {
-      if (e.button === 0 && started && !paused) clickAttackQueued = true;
+      if (e.button !== 0 || !started || paused) return;
+      clickAttackQueued = true;
+      requestLook();
     });
+
+    // Mouse-look: while the pointer is locked to the canvas, raw mouse deltas
+    // drive camera yaw (the same yaw movement + attacks use) and a subtle pitch.
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('pointerlockchange', onPointerLockChange);
 
     resize();
     window.addEventListener('resize', resize);
@@ -579,6 +607,55 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+}
+
+// ---------------------------------------------------------------------------
+// Pointer lock + mouse-look + crosshair
+// ---------------------------------------------------------------------------
+function isPointerLocked() {
+  return !!(renderer && document.pointerLockElement === renderer.domElement);
+}
+
+// Ask the browser to lock the pointer to the canvas. Headless / no
+// user-activation can reject this (sync throw or async rejection) — swallow
+// both so clicking never logs an error and the game keeps working unlocked.
+function requestLook() {
+  if (!renderer || isPointerLocked()) return;
+  try {
+    const p = renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (_) {
+    /* pointer lock unsupported / blocked — ignore, keep arrow-key look */
+  }
+}
+
+function exitLook() {
+  try {
+    if (isPointerLocked() && document.exitPointerLock) document.exitPointerLock();
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function onMouseMove(e) {
+  if (!started || paused || !isPointerLocked()) return;
+  // Turn right (positive movementX) mirrors ArrowRight, which decreases camYaw.
+  camYaw -= (e.movementX || 0) * LOOK_SENS;
+  camPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, camPitch - (e.movementY || 0) * LOOK_SENS));
+}
+
+function onPointerLockChange() {
+  // Native pointer lock already hides the OS cursor; mirror the state onto the
+  // body so CSS can hide it over the HUD too, and drop it everywhere on release.
+  document.body.classList.toggle('mg-pointer-locked', isPointerLocked());
+}
+
+// The crosshair marks where attacks are aimed — visible only during live play
+// (hidden on the character-select overlay and while paused).
+function updateCrosshair() {
+  if (!els || !els.crosshair) return;
+  const show = started && !paused && els.select && els.select.hidden;
+  els.crosshair.hidden = !show;
 }
 
 // ---------------------------------------------------------------------------
@@ -1661,12 +1738,14 @@ function update(dt) {
   updateParticles(dt);
   updateRegion();
 
-  // camera follows from the +heading side, looking into the screen
+  // camera follows from the +heading side, looking into the screen. camPitch
+  // (mouse-look) subtly raises/lowers the eye + aim point without breaking the
+  // third-person follow.
   const back = headingVec(camYaw);
   const camDist = 30;
   const camHeight = 16;
-  camera.position.set(ps.x + back.x * camDist, ps.y + camHeight, ps.z + back.z * camDist);
-  camera.lookAt(ps.x, ps.y + 5, ps.z);
+  camera.position.set(ps.x + back.x * camDist, ps.y + camHeight - camPitch * 16, ps.z + back.z * camDist);
+  camera.lookAt(ps.x, ps.y + 5 + camPitch * 24, ps.z);
 
   // keep the sun roughly above the player so distant chunks stay lit
   sun.position.set(ps.x + 120, 260, ps.z + 80);
@@ -1753,15 +1832,20 @@ function stopLoop() {
     rafId = null;
   }
   // Drop any keys held while navigating away so they don't "stick" and fire
-  // on resume.
+  // on resume. Release pointer lock + hide the crosshair so leaving the Play
+  // view returns a normal cursor and clean overlay.
   down.clear();
   pressed.clear();
+  exitLook();
+  updateCrosshair();
 }
 
 function togglePause() {
   if (!started) return;
   paused = !paused;
   els.paused.hidden = !paused;
+  if (paused) exitLook(); // release the pointer so menus/HUD stay usable
+  updateCrosshair();
 }
 
 // ---------------------------------------------------------------------------
@@ -1806,6 +1890,7 @@ function startGame(heroId) {
   activeMission = null;
   curRegionKey = null;
   camYaw = 0;
+  camPitch = 0;
   player = buildPlayer();
   player.attackCd = 0;
   els.heroEmoji.textContent = hero.emoji;
@@ -1818,6 +1903,7 @@ function startGame(heroId) {
   els.paused.hidden = true;
   started = true;
   paused = false;
+  updateCrosshair();
   resize();
   startLoop();
 }
@@ -1836,6 +1922,7 @@ function onView(view) {
     } else {
       paused = false;
       els.paused.hidden = true;
+      updateCrosshair();
       startLoop();
     }
   } else {
@@ -1851,6 +1938,7 @@ function getState() {
     running,
     heroId: hero ? hero.id : null,
     score,
+    camYaw,
     chunksLoaded: chunks.size,
     playerPos: player ? { x: player.state.pos.x, y: player.state.pos.y, z: player.state.pos.z } : { x: 0, y: 0, z: 0 },
   };

@@ -142,6 +142,61 @@ test('fullscreen toggle button exists, is clickable, and throws no errors', asyn
   expect(errors).toEqual([]);
 });
 
+test('crosshair shows, clicking the canvas requests pointer lock, and mouse-look turns the camera', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/');
+  await page.click('.nav-tab[data-view="game"]');
+  await page.click('.mg-hero-card[data-hero-id="iron-man"]');
+  await page.waitForFunction(
+    () => window.MarvelGame && window.MarvelGame.getState().started === true,
+    null,
+    { timeout: 20_000 }
+  );
+
+  // The aiming reticle is visible during live play.
+  await expect(page.locator('.mg-crosshair')).toBeVisible();
+
+  // Headless can't actually grant pointer lock, so stand in for the Pointer Lock
+  // API: record that requestPointerLock was called and make
+  // document.pointerLockElement report the canvas as locked, so the mouse-look
+  // handler runs without the browser truly granting the lock.
+  await page.evaluate(() => {
+    window.__plReq = 0;
+    window.__locked = null;
+    const canvas = document.querySelector('#view-game canvas');
+    canvas.requestPointerLock = () => {
+      window.__plReq++;
+      window.__locked = canvas;
+      return Promise.resolve();
+    };
+    Object.defineProperty(document, 'pointerLockElement', {
+      configurable: true,
+      get: () => window.__locked,
+    });
+  });
+
+  // Clicking the canvas must attempt to engage pointer lock (catches a wiring
+  // regression — a silent no-op couldn't).
+  await page.locator('#view-game canvas').click({ position: { x: 200, y: 200 } });
+  await page.waitForTimeout(120);
+  expect(await page.evaluate(() => window.__plReq)).toBeGreaterThan(0);
+
+  // Now "locked": a mousemove with a horizontal delta must change the camera yaw
+  // (the same yaw movement + attacks use), so the crosshair aims where you move.
+  const yawBefore = await page.evaluate(() => window.MarvelGame.getState().camYaw);
+  await page.evaluate(() => {
+    const ev = new MouseEvent('mousemove', { bubbles: true });
+    // Force movementX even if the constructor doesn't honour MouseEventInit.movementX.
+    Object.defineProperty(ev, 'movementX', { value: 90 });
+    Object.defineProperty(ev, 'movementY', { value: 0 });
+    document.dispatchEvent(ev);
+  });
+  const yawAfter = await page.evaluate(() => window.MarvelGame.getState().camYaw);
+  expect(yawAfter).not.toBe(yawBefore);
+
+  expect(errors).toEqual([]);
+});
+
 test('switching nav tabs pauses and resumes the loop without errors', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/');
