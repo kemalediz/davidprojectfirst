@@ -368,36 +368,110 @@ describe('stepHero — bike', () => {
   });
 });
 
-describe('stepHero — swing', () => {
-  it('keeps |dist-len| small and builds XZ speed across the arc', () => {
+describe('stepHero — swing (web-pull / zip)', () => {
+  const dist3 = (p, a) => Math.hypot(a.x - p.x, a.y - p.y, a.z - p.z);
+
+  it('attaches a web on action press at the aimed point', () => {
     const hero = HEROES.find((h) => h.movement === 'swing');
-    const s = freshState({ grounded: false, pos: { x: 0, y: 30, z: 0 }, vel: { x: 1, y: 0, z: 0 } });
-    const startSpeed = hsp(s);
-    let maxErr = 0;
-    let sawSwing = false;
-    for (let i = 0; i < 180; i++) {
-      stepHero(hero, s, { ...noInput, action: true }, 1 / 60);
-      if (s.swing) {
-        sawSwing = true;
-        const dx = s.pos.x - s.swing.anchor.x;
-        const dy = s.pos.y - s.swing.anchor.y;
-        const dz = s.pos.z - s.swing.anchor.z;
-        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        maxErr = Math.max(maxErr, Math.abs(dist - s.swing.len));
-      }
-    }
-    expect(sawSwing).toBe(true);
-    expect(maxErr).toBeLessThan(s.swing.len * 0.25);
-    expect(hsp(s)).toBeGreaterThan(startSpeed + 1); // momentum built through the arc
+    const anchor = { x: 40, y: 50, z: 0 };
+    const s = freshState({ grounded: false, pos: { x: 0, y: 30, z: 0 } });
+    stepHero(hero, s, { ...noInput, actionPressed: true, action: true, webAnchor: anchor }, 1 / 60);
+    expect(s.swing).not.toBeNull();
+    expect(s.swing.anchor).toEqual(anchor);
+    // anchor is a copy, not the same object reference
+    expect(s.swing.anchor).not.toBe(anchor);
+    expect(s.swing.len).toBeCloseTo(Math.hypot(40, 20, 0));
   });
-  it('releasing action clears swing and preserves momentum (no ground clamp airborne)', () => {
+
+  it('pulls the player toward the anchor: distance strictly decreases and velocity points at it', () => {
     const hero = HEROES.find((h) => h.movement === 'swing');
-    const s = freshState({ grounded: false, pos: { x: 0, y: 30, z: 0 }, vel: { x: 1, y: 0, z: 0 } });
-    for (let i = 0; i < 60; i++) stepHero(hero, s, { ...noInput, action: true }, 1 / 60);
-    const before = hsp(s);
+    const anchor = { x: 40, y: 50, z: 0 };
+    const s = freshState({ grounded: false, pos: { x: 0, y: 30, z: 0 }, vel: { x: 0, y: 0, z: 0 } });
+    // attach
+    stepHero(hero, s, { ...noInput, actionPressed: true, action: true, webAnchor: anchor }, 1 / 60);
+    expect(s.swing).not.toBeNull();
+    let prevDist = dist3(s.pos, anchor);
+    for (let i = 0; i < 40; i++) {
+      stepHero(hero, s, { ...noInput, action: true, webAnchor: anchor }, 1 / 60);
+      if (!s.swing) break; // reached + auto-detached
+      const d = dist3(s.pos, anchor);
+      expect(d).toBeLessThan(prevDist); // pulled closer every step
+      // velocity has a positive component along (anchor - pos)
+      const tx = anchor.x - s.pos.x;
+      const ty = anchor.y - s.pos.y;
+      const tz = anchor.z - s.pos.z;
+      const dot = s.vel.x * tx + s.vel.y * ty + s.vel.z * tz;
+      expect(dot).toBeGreaterThan(0);
+      // never below ground, always finite, speed capped
+      expect(s.pos.y).toBeGreaterThanOrEqual(CONFIG.GROUND_Y);
+      const sp = Math.hypot(s.vel.x, s.vel.y, s.vel.z);
+      expect(Number.isFinite(sp)).toBe(true);
+      expect(sp).toBeLessThanOrEqual(70 + 1e-6);
+      prevDist = d;
+    }
+  });
+
+  it('releasing action clears swing and preserves momentum (not reset)', () => {
+    const hero = HEROES.find((h) => h.movement === 'swing');
+    const anchor = { x: 40, y: 50, z: 0 };
+    const s = freshState({ grounded: false, pos: { x: 0, y: 30, z: 0 }, vel: { x: 0, y: 0, z: 0 } });
+    stepHero(hero, s, { ...noInput, actionPressed: true, action: true, webAnchor: anchor }, 1 / 60);
+    for (let i = 0; i < 8; i++) stepHero(hero, s, { ...noInput, action: true, webAnchor: anchor }, 1 / 60);
+    expect(s.swing).not.toBeNull();
+    const vx = s.vel.x;
+    const vz = s.vel.z;
+    const beforeH = hsp(s);
+    expect(beforeH).toBeGreaterThan(0); // we were moving
+    // release
     stepHero(hero, s, { ...noInput, action: false }, 1 / 60);
     expect(s.swing).toBeNull();
-    expect(Math.abs(hsp(s) - before)).toBeLessThan(1); // momentum kept
+    // horizontal momentum carried over (a fling), not zeroed
+    expect(hsp(s)).toBeGreaterThan(0);
+    expect(Math.abs(hsp(s) - beforeH)).toBeLessThan(1);
+    expect(s.vel.x).toBeCloseTo(vx, 5);
+    expect(s.vel.z).toBeCloseTo(vz, 5);
+  });
+
+  it('auto-detaches when the player reaches the anchor (within threshold)', () => {
+    const hero = HEROES.find((h) => h.movement === 'swing');
+    const anchor = { x: 12, y: CONFIG.GROUND_Y + 10, z: 0 };
+    const s = freshState({ grounded: false, pos: { x: 0, y: CONFIG.GROUND_Y + 10, z: 0 } });
+    stepHero(hero, s, { ...noInput, actionPressed: true, action: true, webAnchor: anchor }, 1 / 60);
+    let detached = false;
+    for (let i = 0; i < 600; i++) {
+      stepHero(hero, s, { ...noInput, action: true, webAnchor: anchor }, 1 / 60);
+      if (!s.swing) {
+        detached = true;
+        // got close before letting go
+        expect(dist3(s.pos, anchor)).toBeLessThan(3);
+        break;
+      }
+    }
+    expect(detached).toBe(true);
+  });
+
+  it('action held with no webAnchor and no swing does nothing special (no crash, stays above ground)', () => {
+    const hero = HEROES.find((h) => h.movement === 'swing');
+    const s = freshState({ grounded: false, pos: { x: 0, y: 20, z: 0 } });
+    for (let i = 0; i < 120; i++) {
+      stepHero(hero, s, { ...noInput, action: true }, 1 / 60); // aimed at nothing
+      expect(s.swing).toBeNull();
+      expect(s.pos.y).toBeGreaterThanOrEqual(CONFIG.GROUND_Y);
+      expect(Number.isFinite(s.pos.y)).toBe(true);
+    }
+  });
+
+  it('pos.y never drops below GROUND_Y and speed stays finite/capped during a long pull', () => {
+    const hero = HEROES.find((h) => h.movement === 'swing');
+    const anchor = { x: 60, y: CONFIG.GROUND_Y, z: 60 };
+    const s = freshState({ grounded: false, pos: { x: 0, y: 40, z: 0 } });
+    stepHero(hero, s, { ...noInput, actionPressed: true, action: true, webAnchor: anchor }, 1 / 60);
+    for (let i = 0; i < 300; i++) {
+      stepHero(hero, s, { ...noInput, action: true, webAnchor: anchor }, 1 / 60);
+      expect(s.pos.y).toBeGreaterThanOrEqual(CONFIG.GROUND_Y);
+      const sp = Math.hypot(s.vel.x, s.vel.y, s.vel.z);
+      expect(Number.isFinite(sp)).toBe(true);
+    }
   });
 });
 

@@ -248,47 +248,63 @@ export function stepHero(hero, state, input, dt) {
     return state;
   }
 
-  // ---- SWING: pendulum on a web while action is held in the air ----
+  // ---- SWING: web-pull / zip. A fresh action press shoots a web at the aimed
+  // point (input.webAnchor, supplied by the render layer's crosshair raycast);
+  // holding the action zips the player toward that point; releasing flings them
+  // away with the built-up momentum. ----
   if (hero.movement === 'swing') {
-    if (input.action && !state.grounded) {
-      if (!state.swing) {
-        const ahead = 30;
-        const up = 30;
-        const fwd = headingVec(state.yaw);
-        const anchor = {
-          x: state.pos.x + fwd.x * ahead,
-          y: state.pos.y + up,
-          z: state.pos.z + fwd.z * ahead,
-        };
-        const len = Math.hypot(anchor.x - state.pos.x, anchor.y - state.pos.y, anchor.z - state.pos.z);
-        state.swing = { anchor, len };
-      }
-      const { anchor, len } = state.swing;
-      // gravity + integrate freely, then enforce the rope as a hard constraint
-      state.vel.y -= GRAVITY * dt;
-      state.pos.x += state.vel.x * dt;
-      state.pos.y += state.vel.y * dt;
-      state.pos.z += state.vel.z * dt;
-      let dx = state.pos.x - anchor.x;
-      let dy = state.pos.y - anchor.y;
-      let dz = state.pos.z - anchor.z;
-      let dist = Math.hypot(dx, dy, dz) || 1e-6;
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const nz = dz / dist;
-      state.pos.x = anchor.x + nx * len;
-      state.pos.y = anchor.y + ny * len;
-      state.pos.z = anchor.z + nz * len;
-      // remove the radial velocity component (keep only tangential -> builds arc speed)
-      const radial = state.vel.x * nx + state.vel.y * ny + state.vel.z * nz;
-      state.vel.x -= radial * nx;
-      state.vel.y -= radial * ny;
-      state.vel.z -= radial * nz;
-      if (state.pos.y < GROUND_Y) state.pos.y = GROUND_Y;
-      return state;
+    const PULL_ACCEL = 140; // strong inward acceleration (units/s^2)
+    const PULL_MAX_SPEED = 70; // cap on the zip speed (units/s)
+    const DETACH_DIST = 2; // auto-detach once this close to the anchor (units)
+
+    // Fresh press while aiming at a point -> attach a web there.
+    if (input.actionPressed && input.webAnchor) {
+      const a = input.webAnchor;
+      const anchor = { x: a.x, y: a.y, z: a.z }; // copy, never alias the input
+      const len = Math.hypot(anchor.x - state.pos.x, anchor.y - state.pos.y, anchor.z - state.pos.z);
+      state.swing = { anchor, len };
     }
 
-    // not swinging: release the web, keep momentum
+    // Pulling: action held and a web is attached.
+    if (input.action && state.swing) {
+      const { anchor } = state.swing;
+      const dx = anchor.x - state.pos.x;
+      const dy = anchor.y - state.pos.y;
+      const dz = anchor.z - state.pos.z;
+      const dist = Math.hypot(dx, dy, dz) || 1e-6;
+      if (dist > DETACH_DIST) {
+        // accelerate toward the anchor (gravity suppressed while zipping)
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const nz = dz / dist;
+        state.vel.x += nx * PULL_ACCEL * dt;
+        state.vel.y += ny * PULL_ACCEL * dt;
+        state.vel.z += nz * PULL_ACCEL * dt;
+        const sp = Math.hypot(state.vel.x, state.vel.y, state.vel.z);
+        if (sp > PULL_MAX_SPEED) {
+          const k = PULL_MAX_SPEED / sp;
+          state.vel.x *= k;
+          state.vel.y *= k;
+          state.vel.z *= k;
+        }
+        state.pos.x += state.vel.x * dt;
+        state.pos.y += state.vel.y * dt;
+        state.pos.z += state.vel.z * dt;
+        state.swing.len = dist; // informational: current rope length
+        if (state.pos.y <= GROUND_Y) {
+          state.pos.y = GROUND_Y;
+          if (state.vel.y < 0) state.vel.y = 0;
+          state.grounded = true;
+          state.jumps = 0;
+        } else {
+          state.grounded = false;
+        }
+        return state;
+      }
+      // reached the anchor -> detach but KEEP momentum (fall through below)
+    }
+
+    // not pulling (released / no web / reached the anchor): drop the web, keep momentum
     state.swing = null;
     if (state.grounded) {
       if (input.actionPressed) {
