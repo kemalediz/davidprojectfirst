@@ -36,6 +36,7 @@ const els = {
     characters: document.getElementById("view-characters"),
     creation: document.getElementById("view-creation"),
     films: document.getElementById("view-films"),
+    game: document.getElementById("view-game"),
   },
   creationBody: document.getElementById("creation-body"),
   filmsBody: document.getElementById("films-body"),
@@ -457,6 +458,11 @@ function setView(view) {
     ? BASE_TITLE
     : `${view.charAt(0).toUpperCase()}${view.slice(1)} — ${BASE_TITLE}`;
   if (view !== "characters" && !els.modal.hidden) closeModal();
+  // Notify the open-world game so it can start/pause its render loop. Guarded
+  // because render.js loads independently and may not be ready yet.
+  if (window.MarvelGame && typeof window.MarvelGame.onView === "function") {
+    window.MarvelGame.onView(view);
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -472,6 +478,8 @@ function route() {
     setView("creation");
   } else if (hash === "#/films") {
     setView("films");
+  } else if (hash === "#/game") {
+    setView("game");
   } else {
     setView("characters");
     if (!els.modal.hidden) closeModal();

@@ -28,6 +28,7 @@
         <button type="button" class="nav-tab active" data-view="characters">Characters</button>
         <button type="button" class="nav-tab" data-view="creation">Creation</button>
         <button type="button" class="nav-tab" data-view="films">Films</button>
+        <button type="button" class="nav-tab" data-view="game">Play</button>
       </nav>
 
       <div class="controls" id="char-controls">
@@ -82,6 +83,9 @@
       <div class="films-toolbar" id="films-toolbar"></div>
       <div id="films-body" class="films-grid"></div>
     </section>
+
+    <!-- ===== Play view (open-world 3D game; populated by game/render.js) ===== -->
+    <section id="view-game" class="view" hidden aria-label="Open-world superhero game"></section>
   </main>
 
   <footer class="site-footer">
@@ -161,5 +165,19 @@
   <script src="content.js"></script>
   <!-- auth.js wires up optional login; app.js loads the public wiki + favourites -->
   <script type="module" src="auth.js"></script>
+
+  <!-- ===== Open-world game (Play view) ===== -->
+  <!-- Flavour content for the procedural world (countries, cities, villains…). -->
+  <script src="game-data.js"></script>
+  <!-- three.js via CDN import-map — MUST come before any module that imports 'three'. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <!-- The 3D render/gameplay layer (imports three + game/core.js). -->
+  <script type="module" src="game/render.js"></script>
 </body>
 </html>
